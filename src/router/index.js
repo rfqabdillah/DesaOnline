@@ -1,4 +1,4 @@
-import {createRouter, createWebHistory} from "vue-router";
+import {createRouter, createWebHashHistory} from "vue-router";
 import Body from '../components/body';
 
 import Default from '@/pages/dashboard/defaultPage.vue';
@@ -806,7 +806,7 @@ const routes =[
 
 ]
 const router=createRouter({
-    history: createWebHistory(),
+    history: createWebHashHistory(),
     routes
 })
 

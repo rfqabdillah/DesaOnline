@@ -14,9 +14,23 @@ const getUserToken = () => {
   return getUserData().token;
 };
 
+
+// Menggunakan variabel untuk membedakan URL development dan production.
+// Saat 'npm run serve', akan menggunakan '/api' (untuk proxy).
+// Saat 'npm run build', akan menggunakan URL server yang sebenarnya.
+
+// const apiClient = axios.create({
+//   baseURL: '/api/api', 
+// });
+
+const baseURL = process.env.NODE_ENV === 'production'
+  ? 'http://37.44.244.19/api_desaonline'
+  : '/api';
+
 const apiClient = axios.create({
-  baseURL: '/api/api', 
+  baseURL: baseURL, 
 });
+// -------------------------
 
 apiClient.interceptors.request.use(
   config => {
@@ -30,6 +44,5 @@ apiClient.interceptors.request.use(
     return Promise.reject(error);
   }
 );
-
 
 export default apiClient;
