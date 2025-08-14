@@ -1,6 +1,7 @@
-import axios from "axios";
 
-const AUTH_URL = '/api/api/auth';
+import apiClient from './users'; 
+
+// const AUTH_URL = '/api/api/auth'; 
 
 export const login = async (email, password) => {
   try {
@@ -8,9 +9,9 @@ export const login = async (email, password) => {
     formData.append('email', email);      
     formData.append('password', password);
 
-    // console.log("Request URL:", AUTH_URL); 
-
-    const response = await axios.post(AUTH_URL, formData);
+    // baseURL ('http://.../api_desaonline') akan ditambahkan secara otomatis
+    const response = await apiClient.post('/auth', formData);
+    
     return response.data;
   } catch (error) {
     console.error("Error during login:", error); 

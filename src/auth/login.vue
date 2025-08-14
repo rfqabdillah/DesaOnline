@@ -96,45 +96,57 @@ export default {
     togglePassword() {
       this.showPassword = !this.showPassword;
     },
+
     async login() {
+      // 1. Validasi Input Pengguna
       this.user.email.errormsg = '';
       this.user.password.errormsg = '';
-
       if (!this.user.email.value || !this.validEmail(this.user.email.value)) {
         this.user.email.errormsg = 'Email tidak valid.';
         return;
       }
-
       if (!this.user.password.value || this.user.password.value.length < 6) {
         this.user.password.errormsg = 'Password minimal 6 karakter.';
         return;
       }
 
       try {
+        // 2. Panggil API Login
         const result = await loginAPI(this.user.email.value, this.user.password.value);
+        console.log("API Response:", result); // Untuk debugging jika diperlukan
 
-        const token = result.data?.token;
-        console.log("API Response:", result);
-        if (result.success && result.success.token) {
+        // 3. Proses Respons dari Server
+        const responseData = result?.success;
+        const token = responseData?.token;
+        const userData = responseData?.data;
+
+        if (token && userData) {
+          // 4. Jika Sukses, Simpan Data ke localStorage
           localStorage.setItem('User', JSON.stringify({
-            token: result.success.token,
+            token: token,
             email: this.user.email.value,
-            id_pengguna: result.success.data.id_pengguna
+            id_pengguna: userData.id_pengguna
           }));
           
+          // 5. Arahkan ke Halaman Utama
           this.$router.push('/');
+
         } else {
-          alert('Login gagal');
+          // Kondisi jika login sukses tapi format data tidak valid
+          alert('Login gagal: Respons dari server tidak valid.');
         }
+
       } catch (error) {
+        // 6. Tangani Error dari API (cth: password salah, server mati)
         if (error.response) {
-          alert("Login gagal: " + (error.response.data.message || 'Terjadi kesalahan.'));
+          alert("Login gagal: " + (error.response.data.message || 'Email atau password salah.'));
         } else {
-          alert("Tidak bisa terhubung ke server.");
+          alert("Tidak bisa terhubung ke server. Periksa koneksi internet Anda.");
         }
-        console.error(error);
+        console.error("Error saat login:", error);
       }
     },
+
     validEmail(email) {
       const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return re.test(email);

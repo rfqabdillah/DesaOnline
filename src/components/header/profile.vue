@@ -21,60 +21,68 @@
 </template>
 
 <script>
-import axios from 'axios';
+import apiClient from '@/services/users'; 
 
 export default {
   name: 'Profile',
   data() {
     return {
       user: {
-        name: '',
-        role_name: ''
+        name: 'Pengguna',     
+        role_name: 'Role' 
       }
     };
   },
-mounted() {
-  const userData = JSON.parse(localStorage.getItem('User')) || {};
-  const userId = userData.id_pengguna;
-
-  // console.log("Isi local ", userData);
-  // console.log("Isi id_pengguna ", userData.id_pengguna);
-  // console.log(userId, userData.token);
-
-  if (userId) {
-    axios.get('/api/api', { 
-      params: { 
-        act: 'users',
-        key: userId
-      },
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${userData.token}`
-      }
-    })
-    .then(res => {
-      const userInfo = res.data?.[0]?.data?.[0];
-      if (userInfo) {
-        this.user.name = userInfo.name || 'Pengguna';
-        this.user.role_name = userInfo.roles?.role_name || 'Role';
-      }
-    })
-    .catch(err => {
-      console.error('Gagal mengambil data user:', err);
-    });
-  }
-},
+  mounted() {
+    this.fetchUserProfile();
+  },
   methods: {
-    logout() {
-      const token = JSON.parse(localStorage.getItem('User'))?.token;
+    fetchUserProfile() {
+      const userData = JSON.parse(localStorage.getItem('User')) || {};
+      const userId = userData.id_pengguna;
 
-      axios.get('/api/api/logout', {
-        headers: { Authorization: `Bearer ${token}` }
+      if (!userId) {
+        return;
+      }
+
+      apiClient.get('', { 
+        params: { 
+          act: 'users',
+          key: userId
+        }
       })
-      .finally(() => {
-        localStorage.removeItem('User');
-        this.$router.replace('/auth');
+      .then(res => {
+        const userInfo = res.data?.data?.[0]; 
+        
+        if (userInfo) {
+          this.user.name = userInfo.name || 'Pengguna';
+          this.user.role_name = userInfo.roles?.role_name || 'Role';
+        }
+      })
+      .catch(err => {
+        console.error('Gagal mengambil data user:', err);
+        // Jika token tidak valid (error 401/403), paksa logout
+        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+          this.logout();
+        }
       });
+    },
+
+    logout() {
+      apiClient.get('/logout')
+        .then(response => {
+          console.log('Logout dari server berhasil.', response.data);
+          // Hanya jika server berhasil, bersihkan data di sisi klien
+          localStorage.removeItem('User');
+          this.$router.replace('/auth');
+        })
+        .catch(error => {
+          console.error('API logout gagal:', error);
+          // Jika API gagal, tetap log out dari sisi klien agar pengguna tidak terjebak
+          alert('Sesi di server mungkin masih aktif, namun Anda akan dikeluarkan dari aplikasi.');
+          localStorage.removeItem('User');
+          this.$router.replace('/auth');
+        });
     }
   }
 };
