@@ -49,10 +49,13 @@ export default {
         params: { 
           act: 'users',
           key: userId
+        },
+        headers: {
+          'Authorization': `Bearer ${userData.token}`
         }
       })
       .then(res => {
-        const userInfo = res.data?.data?.[0]; 
+        const userInfo = res.data?.[0]?.data?.[0]; 
         
         if (userInfo) {
           this.user.name = userInfo.name || 'Pengguna';
@@ -69,20 +72,15 @@ export default {
     },
 
     logout() {
-      apiClient.get('/logout')
-        .then(response => {
-          console.log('Logout dari server berhasil.', response.data);
-          // Hanya jika server berhasil, bersihkan data di sisi klien
-          localStorage.removeItem('User');
-          this.$router.replace('/auth');
-        })
-        .catch(error => {
-          console.error('API logout gagal:', error);
-          // Jika API gagal, tetap log out dari sisi klien agar pengguna tidak terjebak
-          alert('Sesi di server mungkin masih aktif, namun Anda akan dikeluarkan dari aplikasi.');
-          localStorage.removeItem('User');
-          this.$router.replace('/auth');
-        });
+      const token = JSON.parse(localStorage.getItem('User'))?.token;
+
+      apiClient.get('/logout', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      .finally(() => {
+        localStorage.removeItem('User');
+        this.$router.replace('/auth');
+      });
     }
   }
 };

@@ -34,6 +34,7 @@ import IndexRelatedLinks from "@/pages/relatedLinks/index.vue";
 
 // Mulai Referensi
 import IndexUser from "@/pages/general/user/index.vue";
+import IndexRoles from "@/pages/general/roles/index.vue";
 import IndexRegion from "@/pages/general/regions/index.vue";
 
 import IndexReligion from "@/pages/demographics/religions/index.vue";
@@ -512,6 +513,14 @@ const routes =[
             component: IndexUser,
             meta: {
               title: "Pengguna",
+            },
+          },
+          {
+            path: "roles",
+            name: "general_roles",
+            component: IndexRoles,
+            meta: {
+              title: "Roles",
             },
           },
           {

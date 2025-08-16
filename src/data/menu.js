@@ -347,6 +347,12 @@ export var menuItems = {
           "active":false
         },
         {
+          "path": "/general/roles",
+          "title": "Role",
+          "type": "link",
+          "active":false
+        },
+        {
           "path": "/general/regions",
           "title": "Wilayah",
           "type": "link",
