@@ -1,10 +1,9 @@
 <template>
     <div>
-        <Breadcrumbs main="Umum" title="Pengguna" />
-
+        <Breadcrumbs main="Umum" :title="$route.meta.title" />
         <div class="container-fluid">
-            <div class="row widget-grid">
-                <!-- <WelcomeCard /> -->
+            <div class="row">
+                <UserTable />
             </div>
         </div>
 
@@ -12,11 +11,11 @@
 </template>
 
 <script>
-// import WelcomeCard from "./WelcomeCard.vue";
+import UserTable from './usersTable.vue';
 
 export default {
     components: {
-        // WelcomeCard,
-    },
-};
+        UserTable,
+    }
+}
 </script>
