@@ -162,14 +162,13 @@ export default {
       programs: [],
       isLoading: false,
       sortColumn: 'created_at',
-      sortDirection: 'desc', // Default to newest first
+      sortDirection: 'desc', 
       isModalVisible: false,
       currentPage: 1,
       perPage: 10,
       totalItems: 0,
       programBeingEdited: null,
       isFilterVisible: false,
-      // CORRECTED: Filters object now matches the template
       filters: {
         judul: '',
         namawilayah: '',
@@ -179,7 +178,6 @@ export default {
     };
   },
   computed: {
-    // This computed property is fine if pagination is backend-driven
     paginatedPrograms() {
       return this.programs;
     },
@@ -228,12 +226,10 @@ export default {
       this.isModalVisible = false;
       this.programBeingEdited = null;
     },
-    // CORRECTED: Renamed method for clarity
     openDetailModal(item) {
       this.programBeingViewed = { ...item };
       this.isDetailModalVisible = true;
     },
-    // CORRECTED: Renamed method for clarity
     closeDetailModal() {
       this.isDetailModalVisible = false;
       this.programBeingViewed = null;
@@ -329,7 +325,6 @@ export default {
       this.currentPage = 1;
       this.fetchPrograms();
     },
-    // FIXED: This method now resets the correct filter properties
     resetFilters() {
       this.filters.judul = '';
       this.filters.namawilayah = '';

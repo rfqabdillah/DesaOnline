@@ -39,7 +39,7 @@
                 <div class="form-input position-relative">
                     <input :type="confirmPasswordFieldType" class="form-control pe-5" v-model="formData.confirm_password" placeholder="*********" :required="formData.password !== ''" />
                     <span class="position-absolute end-0 top-50 translate-middle-y me-3" style="cursor: pointer" @click="toggleConfirmPasswordVisibility">
-                         <vue-feather :type="confirmPasswordFieldType === 'password' ? 'eye' : 'eye-off'" />
+                        <vue-feather :type="confirmPasswordFieldType === 'password' ? 'eye' : 'eye-off'" />
                     </span>
                 </div>
             </div>
@@ -51,7 +51,6 @@
                 <option disabled value="">
                   {{ isListLoading ? 'Memuat...' : 'Pilih Role' }}
                 </option>
-                <!-- FIX: Menggunakan 'idlevel' sebagai key dan value -->
                 <option v-for="role in roleList" :key="role.idlevel" :value="role.idlevel">
                   {{ role.namalevel }}
                 </option>
@@ -131,7 +130,7 @@ const initialFormData = {
   email: '',
   password: '',
   confirm_password: '',
-  idlevel: '', // FIX: Menggunakan idlevel secara konsisten
+  idlevel: '', 
   gender: '',
   pob: '', 
   dob: '', 
@@ -245,7 +244,6 @@ export default {
 
       data.append('record[name]', this.formData.name);
       data.append('record[email]', this.formData.email);
-      // FIX: Mengirim idlevel secara konsisten
       data.append('record[idlevel]', this.formData.idlevel);
       data.append('record[gender]', this.formData.gender);
       data.append('record[pob]', this.formData.pob);
@@ -287,7 +285,6 @@ export default {
 </script>
 
 <style scoped>
-/* CSS styles (tidak ada perubahan, tetap sama) */
 .modal-overlay {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   background-color: rgba(0, 0, 0, 0.6);

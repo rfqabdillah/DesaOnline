@@ -8,6 +8,12 @@
       @save-successful="handleSaveSuccessful"
     />
 
+    <detail-user-modal
+      v-if="isDetailModalVisible"
+      :user-to-view="userBeingViewed"
+      @close="closeDetailModal"
+    />
+
     <div class="card">
       <div class="card-header">
         <h3>Daftar Pengguna</h3>
@@ -101,6 +107,9 @@
                 <td>{{ item.roles ? item.roles.role_name : '-' }}</td>
                 <td>
                   <div class="btn-group">
+                    <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail">
+                      <i class="fa fa-eye"></i>
+                    </button>
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
@@ -142,10 +151,11 @@
 <script>
 import { getUsers, deleteUser } from '@/services/referensi/users'; 
 import AddEditUserModal from './addEditUserModal.vue';
+import DetailUserModal from "./detailUser.vue";
 import { useToast } from "vue-toastification";
 
 export default {
-  components: { AddEditUserModal }, 
+  components: { AddEditUserModal, DetailUserModal }, 
   data() {
     return {
       users: [],
@@ -162,6 +172,8 @@ export default {
         name: '',
         email: '',
       },
+      isDetailModalVisible: false,
+      userBeingViewed: null,
     };
   },
   computed: {
@@ -212,6 +224,14 @@ export default {
     closeModal() {
       this.isModalVisible = false;
       this.userBeingEdited = null;
+    },
+    openDetailModal(item) {
+      this.userBeingViewed = { ...item };
+      this.isDetailModalVisible = true;
+    },
+    closeDetailModal() {
+      this.isDetailModalVisible = false;
+      this.userBeingViewed = null;
     },
     handleSaveSuccessful() {
       this.closeModal();
