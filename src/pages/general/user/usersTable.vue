@@ -322,7 +322,7 @@ export default {
       this.filters.name = '';
       this.filters.email = '';
       this.sortColumn = 'created_at'; 
-      this.sortDirection = 'desc';
+      this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchUsers();
     },
