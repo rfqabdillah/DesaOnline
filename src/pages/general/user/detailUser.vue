@@ -40,7 +40,7 @@
               <h5><i class="fa fa-phone me-2"></i>Telepon</h5>
               <p>{{ userDetail.telp || '-' }}</p>
             </div>
-             <div class="detail-item mb-3">
+            <div class="detail-item mb-3">
               <h5><i class="fa fa-venus-mars me-2"></i>Jenis Kelamin</h5>
               <p>{{ formattedGender }}</p>
             </div>
@@ -89,7 +89,6 @@ export default {
   computed: {
     formattedGender() {
       if (!this.userDetail || !this.userDetail.gender) return '-';
-      // Menyesuaikan dengan data yang diterima (Laki-laki/Perempuan)
       if (this.userDetail.gender.toUpperCase() === 'L' || this.userDetail.gender.toUpperCase() === 'LAKI-LAKI') return 'Laki-laki';
       if (this.userDetail.gender.toUpperCase() === 'P' || this.userDetail.gender.toUpperCase() === 'PEREMPUAN') return 'Perempuan';
       return this.userDetail.gender;
@@ -137,10 +136,8 @@ export default {
 
       try {
         const response = await getDetailUsers(userId);
-        const responseData = response.data; // Simpan response.data ke variabel
+        const responseData = response.data; 
 
-        // ## PERBAIKAN UTAMA DI SINI ##
-        // Logika disesuaikan dengan struktur data baru: [ { data: [...] } ]
         if (
           Array.isArray(responseData) &&
           responseData.length > 0 &&

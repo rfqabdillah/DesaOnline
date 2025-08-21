@@ -62,8 +62,8 @@
               <label class="form-label">Gender</label>
               <select class="form-select" v-model="formData.gender">
                   <option value="" disabled>Pilih Gender</option>
-                  <option value="Laki-laki">Laki-laki</option>
-                  <option value="Perempuan">Perempuan</option>
+                  <option value="L">Laki-laki</option>
+                  <option value="P">Perempuan</option>
               </select>
             </div>
 

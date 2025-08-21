@@ -23,6 +23,7 @@ import IndexProfileEnterprise from "@/pages/enterprise/profile/index.vue";
 import IndexManagement from '@/pages/enterprise/management/index.vue';
 import IndexReports from '@/pages/enterprise/reports/index.vue';
 
+import IndexArticles from "@/pages/website/articles/index.vue";
 import IndexCategoryArticles from "@/pages/website/categoryArticle/index.vue";
 import IndexDocument from "@/pages/website/documents/index.vue"
 import IndexDocumentTypes from "@/pages/website/documentTypes/index.vue";
@@ -34,8 +35,8 @@ import IndexRelatedLinks from "@/pages/relatedLinks/index.vue";
 
 // Mulai Referensi
 import IndexUser from "@/pages/general/user/index.vue";
-import IndexRoles from "@/pages/general/roles/index.vue";
 import IndexRegion from "@/pages/general/regions/index.vue";
+import IndexRoles from "@/pages/general/roles/index.vue";
 
 import IndexReligion from "@/pages/demographics/religions/index.vue";
 import IndexBloodTypes from "@/pages/demographics/bloodtypes/index.vue";
@@ -399,7 +400,7 @@ const routes =[
           {
             path: "articles/list",
             name: "websiteArtikel_artikel",
-            component: IndexUser,
+            component: IndexArticles,
             meta: {
               title: "Artikel",
             },
@@ -517,10 +518,10 @@ const routes =[
           },
           {
             path: "roles",
-            name: "general_roles",
+            name: "general_kedudukan",
             component: IndexRoles,
             meta: {
-              title: "Roles",
+              title: "Role",
             },
           },
           {
@@ -815,8 +816,8 @@ const routes =[
 
 ]
 const router=createRouter({
-    history: createWebHashHistory(),
-    routes
+    history: createWebHashHistory(),
+    routes
 })
 
 router.beforeEach((to, from, next) => {

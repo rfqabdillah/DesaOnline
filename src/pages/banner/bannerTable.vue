@@ -413,7 +413,7 @@ export default {
       this.filters.namabanner = '';
       this.filters.namawilayah = '';
       this.sortColumn = 'created_at'; 
-      this.sortDirection = 'desc';
+      this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchBanner();
     },
@@ -460,6 +460,8 @@ th i.fa {
   flex-direction: column;
   max-width: 90vw;
   max-height: 90vh;
+  min-width: 75vw;
+  min-height: 85vh;
   width: auto;
 }
 

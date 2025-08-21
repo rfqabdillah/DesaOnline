@@ -1,22 +1,22 @@
 <template>
   <div class="col-sm-12">
     
-    <add-edit-service-modal
+    <add-edit-article-modal
       v-if="isModalVisible"
-      :service-to-edit="serviceBeingEdited"
+      :article-to-edit="articleBeingEdited"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
 
-    <detail-service-modal
+    <detail-article-modal
       v-if="isDetailModalVisible"
-      :service-to-view="serviceBeingViewed"
+      :article-to-view="articleBeingViewed"
       @close="closeDetailModal"
     />
 
     <div class="card">
       <div class="card-header">
-        <h3>Daftar Layanan</h3>
+        <h3>Daftar Artikel</h3>
       </div>
       <div class="card-body">
         <div class="d-flex justify-content-end align-items-start mb-3">
@@ -28,48 +28,63 @@
             </button>
             <button class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
-              <span> Tambah Data</span>
+              <span> Tambah Artikel</span>
             </button>
           </div>
         </div>
 
-        
-        <!-- filter -->
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
-          <div class="row g-3">
-            <div class="col-md-3">
-              <label for="filterName" class="form-label">Nama Layanan</label>
-              <input type="text" id="filterName" class="form-control" v-model="filters.namalayanan" placeholder="Filter berdasarkan nama layanan">
+            <div class="row g-3">
+              <div class="col-md-3">
+                <label for="filterTitle" class="form-label">Judul Artikel</label>
+                <input type="text" id="filterTitle" class="form-control" v-model="filters.judul" placeholder="Filter berdasarkan judul">
+              </div>
+              <div class="col-md-3">
+                <label for="filterCategory" class="form-label">Kategori Artikel</label>
+                <select id="filterCategory" class="form-select" v-model="filters.idkategoriartikel">
+                    <option value="">Semua Kategori</option>
+                    <option v-for="category in categoryList" :key="category.idkategoriartikel" :value="category.idkategoriartikel">
+                        {{ category.namakategoriartikel }}
+                    </option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label for="filterDate" class="form-label">Tanggal dibuat</label>
+                <input type="date" id="filterDate" class="form-control" v-model="filters.created_at">
+              </div>
+              <div class="col-md-3">
+                <label for="filterVillage" class="form-label">Nama Desa</label>
+                <input type="text" id="filterVillage" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
+              </div>
             </div>
-
-            <div class="col-md-3">
-              <label for="filterVillageName" class="form-label">Nama Desa</label>
-              <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
+            <div class="d-flex justify-content-end gap-2 mt-3">
+              <button class="btn btn-secondary" @click="resetFilters">
+                <i class="fa fa-refresh me-2"></i>
+                <span>Reset Filter</span>
+              </button>
+              <button class="btn btn-primary" @click="applyFilters">
+                  <i class="fa fa-search me-2"></i>
+                  <span>Terapkan Filter</span>
+              </button>
             </div>
-          </div>
-          <div class="d-flex justify-content-end gap-2 mt-3">
-            <button class="btn btn-secondary" @click="resetFilters">
-              <i class="fa fa-refresh me-2"></i>
-              <span>Reset Filter</span>
-            </button>
-            <button class="btn btn-primary" @click="applyFilters">
-                <i class="fa fa-search me-2"></i>
-                <span>Terapkan Filter</span>
-            </button>
-          </div>
         </div>
       </div>
 
-      <!-- Tabel -->
       <div class="table-responsive signal-table">
         <table class="table table-hover">
           <thead>
             <tr>
               <th scope="col">No</th>
-              <th scope="col" @click="sortBy('namalayanan')">
-                Nama Layanan
-                <i class="fa fa-sort-asc" v-if="sortColumn === 'namalayanan' && sortDirection === 'asc'"></i>
-                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namalayanan' && sortDirection === 'desc'"></i>
+              <th scope="col" @click="sortBy('judul')">
+                Judul Artikel
+                <i class="fa fa-sort-asc" v-if="sortColumn === 'judul' && sortDirection === 'asc'"></i>
+                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'judul' && sortDirection === 'desc'"></i>
+                <i class="fa fa-sort" v-else></i>
+              </th>
+              <th scope="col" @click="sortBy('idkategoriartikel')">
+                Kategori
+                <i class="fa fa-sort-asc" v-if="sortColumn === 'idkategoriartikel' && sortDirection === 'asc'"></i>
+                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'idkategoriartikel' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
               <th scope="col" @click="sortBy('namawilayah')">
@@ -78,12 +93,18 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
+              <th scope="col" @click="sortBy('created_at')">
+                Tanggal Dibuat
+                <i class="fa fa-sort-asc" v-if="sortColumn === 'created_at' && sortDirection === 'asc'"></i>
+                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'created_at' && sortDirection === 'desc'"></i>
+                <i class="fa fa-sort" v-else></i>
+              </th>
               <th scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="7" class="text-center p-5">
+              <td colspan="6" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Loading...</span>
                 </div>
@@ -91,10 +112,12 @@
               </td>
             </tr>
             <template v-else>
-              <tr v-for="(item, index) in paginatedServices" :key="item.idusaha">
-                <th scope="row">{{ (currentPage - 1) * perPage + index + 1 }}</th>
-                <td>{{ item.namalayanan || '-' }}</td>
+              <tr v-for="(item, index) in articles" :key="item.idartikel">
+                <th scope="row"> {{ (currentPage - 1) * perPage + index + 1 }}</th>
+                <td>{{ item.judul || '-' }}</td>
+                <td>{{ item.kategoriartikel?.nama_kategori_artikel || '-' }}</td>
                 <td>{{ item.wilayah?.namawilayah || '-' }}</td>
+                <td>{{ formatDate(item.created_at) }}</td>
                 <td>
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Data">
@@ -103,20 +126,19 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idusaha)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idartikel)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="paginatedServices.length === 0">
-                <td colspan="7" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              <tr v-if="articles.length === 0">
+                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
         </table>
 
-        <!-- Pagination -->
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center mt-3 px-3 pb-3">
           <div class="mt-2">
             <span v-if="totalItems > 0" class="text-muted">
@@ -141,37 +163,38 @@
 </template>
 
 <script>
-import { getServices, deleteService } from '@/services/general/services/services'; 
-import AddEditServiceModal from "./addEditServiceModal.vue";
-import DetailServiceModal from './detailService.vue';
+import { getArticles, deleteArticle } from '@/services/general/website/article';
+import { getArticleCategories } from '@/services/general/website/articleCategory'; 
+import AddEditArticleModal from './addEditArticleModal.vue';
+import DetailArticleModal from './detailArticle.vue';
 import { useToast } from "vue-toastification";
 
 export default {
-  components: { AddEditServiceModal, DetailServiceModal }, 
+  components: { AddEditArticleModal, DetailArticleModal }, 
   data() {
     return {
-      services: [],
+      articles: [],
+      categoryList: [], 
       isLoading: false, 
       sortColumn: 'created_at',
       sortDirection: 'asc',
       isModalVisible: false,
       currentPage: 1,
-      perPage: 10, 
+      perPage: 10,
       totalItems: 0,
-      serviceBeingEdited: null,
+      articleBeingEdited: null,
       isFilterVisible: false,
       filters: {
-        namalayanan: '',
+        judul: '',
+        idkategoriartikel: '',
+        created_at: '',
         namawilayah: '',
       },
       isDetailModalVisible: false,
-      serviceBeingViewed: null,
+      articleBeingViewed: null,
     };
   },
   computed: {
-    paginatedServices() {
-      return this.services;
-    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -193,47 +216,68 @@ export default {
   },
   watch: {
     currentPage() {
-      this.fetchServices();
+      this.fetchArticles();
     },
     perPage() {
       this.currentPage = 1;
-      this.fetchServices();
+      this.fetchArticles();
     },
   },
   async mounted() {
     this.toast = useToast();
-    await this.fetchServices();
+    await this.fetchCategoriesForFilter();
+    await this.fetchArticles();
   },
   methods: {
+    formatDate(dateString) {
+      if (!dateString) return '-';
+      try {
+        return new Date(dateString).toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        });
+      } catch (e) {
+        return dateString.split(' ')[0];
+      }
+    },
     openAddModal() {
-      this.serviceBeingEdited = null;
+      this.articleBeingEdited = null;
       this.isModalVisible = true;
     },
     openEditModal(item) {
-      this.serviceBeingEdited = { ...item };
+      this.articleBeingEdited = { ...item };
       this.isModalVisible = true;
     },
     closeModal() {
       this.isModalVisible = false;
-      this.serviceBeingEdited = null;
+      this.articleBeingEdited = null;
     },
     openDetailModal(item) {
-      this.serviceBeingViewed = { ...item };
+      this.articleBeingViewed = { ...item };
       this.isDetailModalVisible = true;
     },
     closeDetailModal() {
       this.isDetailModalVisible = false;
-      this.serviceBeingViewed = null;
+      this.articleBeingViewed = null;
     },
     handleSaveSuccessful() {
       this.closeModal();
-      this.fetchServices(); 
+      this.fetchArticles();
     },
-    async fetchServices() {
+    async fetchCategoriesForFilter() {
+        try {
+            const response = await getArticleCategories({ limit: -1 });
+            this.categoryList = response.data?.data || response.data?.[0]?.data || [];
+        } catch (error) {
+            this.toast.error("Gagal memuat daftar kategori artikel.");
+        }
+    },
+    async fetchArticles() {
       this.isLoading = true; 
       try {
         const params = {
-          act: 'layanan', 
+          act: 'artikel', 
           page: this.currentPage,
           limit: this.perPage,
           order: this.sortColumn ? `${this.sortColumn} ${this.sortDirection}` : '',
@@ -243,25 +287,29 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
-        params.filter = filterParts.length > 0 ? filterParts.join(',') : '';
+        if (filterParts.length > 0) {
+          params.filter = filterParts.join(',');
+        } else {
+          params.filter = '';
+        }
         
-        const response = await getServices(params);
-        const serviceData = response.data?.data || response.data?.[0]?.data || [];
+        const response = await getArticles(params);
+        const articleData = response.data?.data || response.data?.[0]?.data || [];
         const meta = response.data?.meta?.pagination || response.data?.[0]?.meta?.pagination || {};
 
-        this.services = serviceData;
-        this.totalItems = meta.total || serviceData.length;
+        this.articles = articleData;
+        this.totalItems = meta.total || 0;
         
       } catch (error) {
-        console.error("Error fetching services:", error);
-        this.toast.error("Gagal memuat data layanan", { icon: 'fa fa-times' });
+        console.error("Error fetching articles:", error);
+        this.toast.error("Gagal memuat data artikel", { icon: 'fa fa-times' });
       } finally {
         this.isLoading = false; 
       }
     },
     advancedDeleteAlert(id) { 
       this.$swal({
-        title: 'Hapus Data Layanan',
+        title: 'Hapus Data Artikel',
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -273,15 +321,15 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteService(id); 
-            if (this.services.length === 1 && this.currentPage > 1) {
+            await deleteArticle(id); 
+            if (this.articles.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
-              this.fetchServices();
+              this.fetchArticles();
             }
-            this.toast.success("Data layanan berhasil dihapus", { icon: 'fa fa-check' });
+            this.toast.success("Data artikel berhasil dihapus", { icon: 'fa fa-check' });
           } catch (error) {
-            this.toast.error("Gagal menghapus data layanan", { icon: 'fa fa-times' });
+            this.toast.error("Gagal menghapus data artikel", { icon: 'fa fa-times' });
           }
         }
       });
@@ -293,7 +341,7 @@ export default {
         this.sortColumn = column;
         this.sortDirection = 'asc';
       }
-      this.fetchServices();
+      this.fetchArticles();
     },
     changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
@@ -305,15 +353,15 @@ export default {
     },
     applyFilters() {
       this.currentPage = 1;
-      this.fetchServices();
+      this.fetchArticles();
     },
     resetFilters() {
       this.filters.judul = '';
+      this.filters.idkategoriartikel = '';
       this.filters.namawilayah = '';
-      this.sortColumn = 'created_at';
-      this.sortDirection = 'asc';
+      this.filters.created_at = '';
       this.currentPage = 1;
-      this.fetchServices();
+      this.fetchArticles();
     },
   },
 };
@@ -334,15 +382,5 @@ th i.fa {
 }
 .table td, .table th {
   padding-right: 1.7rem; 
-  vertical-align: middle;
-}
-.img-thumbnail-table {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  padding: 0.2rem;
-  background-color: #fff;
-  border: 1px solid #dee2e6;
-  border-radius: 0.25rem;
 }
 </style>
