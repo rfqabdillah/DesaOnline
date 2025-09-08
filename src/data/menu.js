@@ -164,20 +164,8 @@ export var menuItems = {
       "active": false,
       "children": [
         {
-          "path": "/assets/land",
+          "path": "/assets/lands",
           "title": "Tanah",
-          "type": "link",
-          "active":false
-        },
-        {
-          "path": "/assets/buildings",
-          "title": "Bangunan",
-          "type": "link",
-          "active":false
-        },
-        {
-          "path": "/assets/rooms",
-          "title": "Ruangan",
           "type": "link",
           "active":false
         },
@@ -211,12 +199,6 @@ export var menuItems = {
         {
           "path": "/land-affairs/parcels",
           "title": "Data Percil",
-          "type": "link",
-          "active":false
-        },
-        {
-          "path": "/land-affairs/c-ledger",
-          "title": "C Desa",
           "type": "link",
           "active":false
         },

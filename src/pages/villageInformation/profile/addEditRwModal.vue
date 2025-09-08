@@ -109,13 +109,11 @@ export default {
     isEditMode() {
       return !!this.rwToEdit;
     },
-    // Filter residents based on the parent Dusun's ID
     filteredResidents() {
       if (!this.dusunData || !this.dusunData.iddusun) {
         return [];
       }
       return this.residents.filter(resident => {
-        // Filter by checking if the resident's rw object has a matching iddusun.
         return resident.rw && resident.rw.iddusun === this.dusunData.iddusun;
       });
     }

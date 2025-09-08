@@ -18,6 +18,7 @@ import Vue3Toasity from 'vue3-toastify';
 import 'vue3-toastify/dist/index.css';
 import Toast, {POSITION, useToast} from "vue-toastification";
 import "vue-toastification/dist/index.css";
+import '@vueup/vue-quill/dist/vue-quill.snow.css';
 
 const locale = (localStorage.getItem('currentLanguage') && localeOptions.filter(x => x.id === localStorage.getItem('currentLanguage')).length > 0) ? localStorage.getItem('currentLanguage') : defaultLocale;
 const i18n = createI18n({

@@ -19,14 +19,11 @@
               <input type="text" class="form-control" v-model="formData.nama" placeholder="Masukkan nama" required />
             </div>
 
-            <!-- CASCADING SELECTS FOR UI FILTERING -->
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Desa</label>
                 <select class="form-select" v-model="selectedLocation.desa" required :disabled="isListLoading">
-                  <option disabled value="">
-                    {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
-                  </option>
+                  <option disabled value="">{{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}</option>
                   <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
                     {{ desa.wilayah?.namawilayah }}
                   </option>
@@ -34,11 +31,11 @@
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Dusun</label>
-                <select class="form-select" v-model="selectedLocation.dusun" required :disabled="isListLoading || !selectedLocation.desa">
+                <select class="form-select" v-model="selectedLocation.dusun" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.desa)">
                   <option disabled value="">
-                    {{ !selectedLocation.desa ? 'Pilih Desa terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih Dusun') }}
+                    {{ !selectedLocation.desa && !isInitialEditLoad ? 'Pilih Desa terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih Dusun') }}
                   </option>
-                  <option v-for="dusun in filteredDusunList" :key="dusun.iddusun" :value="dusun.iddusun">
+                  <option v-for="dusun in dusunOptions" :key="dusun.iddusun" :value="dusun.iddusun">
                     {{ dusun.namadusun }}
                   </option>
                 </select>
@@ -48,23 +45,22 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama RW</label>
-                <select class="form-select" v-model="selectedLocation.rw" required :disabled="isListLoading || !selectedLocation.dusun">
+                <select class="form-select" v-model="selectedLocation.rw" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.dusun)">
                   <option disabled value="">
-                    {{ !selectedLocation.dusun ? 'Pilih Dusun terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RW') }}
+                    {{ !selectedLocation.dusun && !isInitialEditLoad ? 'Pilih Dusun terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RW') }}
                   </option>
-                  <option v-for="rw in filteredRwList" :key="rw.idrw" :value="rw.idrw">
+                  <option v-for="rw in rwOptions" :key="rw.idrw" :value="rw.idrw">
                     {{ rw.namarw }}
                   </option>
                 </select>
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama RT</label>
-                <!-- This is the only location ID that will be saved -->
-                <select class="form-select" v-model="formData.idrt" required :disabled="isListLoading || !selectedLocation.rw">
+                <select class="form-select" v-model="formData.idrt" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.rw)">
                   <option disabled value="">
-                    {{ !selectedLocation.rw ? 'Pilih RW terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RT') }}
+                    {{ !selectedLocation.rw && !isInitialEditLoad ? 'Pilih RW terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RT') }}
                   </option>
-                  <option v-for="rt in filteredRtList" :key="rt.idrt" :value="rt.idrt">
+                  <option v-for="rt in rtOptions" :key="rt.idrt" :value="rt.idrt">
                     {{ rt.namart }}
                   </option>
                 </select>
@@ -198,11 +194,10 @@ import { getBirthAttendants } from '@/services/referensi/birthAttendants';
 import { getMartialStatuses } from '@/services/referensi/martialStatuses';
 import { useToast } from "vue-toastification";
 
-// Imports for Cascading Selects
-import { getProfiles } from "@/services/general/villageInformation/profile"; //desa  
-import { getDusuns } from "@/services/general/villageInformation/dusun"; //dusun  
-import { getRw } from "@/services/general/villageInformation/rw"; //rw  
-import { getRt } from "@/services/general/villageInformation/rt"; //rt
+import { getProfiles } from "@/services/general/villageInformation/profile";
+import { getDusuns } from "@/services/general/villageInformation/dusun";
+import { getRw } from "@/services/general/villageInformation/rw";
+import { getRt } from "@/services/general/villageInformation/rt";
 
 const initialFormData = {
   nik: '',
@@ -235,6 +230,7 @@ export default {
         dusun: '',
         rw: '',
       },
+      isInitialEditLoad: false,
       desaList: [],
       dusunList: [],
       rwList: [],
@@ -258,21 +254,32 @@ export default {
     isEditMode() {
       return !!this.residentToEdit;
     },
-    filteredDusunList() {
+    dusunOptions() {
+      if (this.isInitialEditLoad) {
+        return this.dusunList;
+      }
       if (!this.selectedLocation.desa) return [];
       return this.dusunList.filter(d => d.iddesa == this.selectedLocation.desa);
     },
-    filteredRwList() {
+    rwOptions() {
+      if (this.isInitialEditLoad) {
+        return this.rwList;
+      }
       if (!this.selectedLocation.dusun) return [];
       return this.rwList.filter(rw => rw.iddusun == this.selectedLocation.dusun);
     },
-    filteredRtList() {
+    rtOptions() {
+      if (this.isInitialEditLoad) {
+        return this.rtList;
+      }
       if (!this.selectedLocation.rw) return [];
       return this.rtList.filter(rt => rt.idrw == this.selectedLocation.rw);
     }
   },
   watch: {
     'selectedLocation.desa'(newVal, oldVal) {
+      if (this.isInitialEditLoad) return;
+
       if (newVal !== oldVal) {
         this.selectedLocation.dusun = '';
         this.selectedLocation.rw = '';
@@ -280,12 +287,16 @@ export default {
       }
     },
     'selectedLocation.dusun'(newVal, oldVal) {
+      if (this.isInitialEditLoad) return;
+
       if (newVal !== oldVal) {
         this.selectedLocation.rw = '';
         this.formData.idrt = '';
       }
     },
     'selectedLocation.rw'(newVal, oldVal) {
+      if (this.isInitialEditLoad) return;
+
       if (newVal !== oldVal) {
         this.formData.idrt = '';
       }
@@ -357,24 +368,20 @@ export default {
     populateForm() {
       this.errorMessage = null;
       if (this.isEditMode && this.residentToEdit) {
-        // Assign all matching properties from residentToEdit to formData
-        Object.assign(this.formData, this.residentToEdit);
+        this.isInitialEditLoad = true;
         
-        // Work backwards to populate the UI dropdowns
-        const rt = this.rtList.find(r => r.idrt === this.residentToEdit.idrt);
-        if (rt) {
-          const rw = this.rwList.find(r => r.idrw === rt.idrw);
-          if (rw) {
-            const dusun = this.dusunList.find(d => d.iddusun === rw.iddusun);
-            if (dusun) {
-              this.selectedLocation.desa = dusun.iddesa;
-              this.selectedLocation.dusun = dusun.iddusun;
-              this.selectedLocation.rw = rw.idrw;
-            }
-          }
-        }
+        Object.assign(this.formData, this.residentToEdit);
+        this.selectedLocation.desa = this.residentToEdit.dusun?.iddesa || '';
+        this.selectedLocation.dusun = this.residentToEdit.rw?.iddusun || '';
+        this.selectedLocation.rw = this.residentToEdit.rt?.idrw || '';
+        this.formData.idrt = this.residentToEdit.idrt || '';
+        
+        this.$nextTick(() => {
+          this.isInitialEditLoad = false;
+        });
 
       } else {
+        this.isInitialEditLoad = false;
         this.formData = { ...initialFormData };
         this.selectedLocation = { desa: '', dusun: '', rw: '' };
       }

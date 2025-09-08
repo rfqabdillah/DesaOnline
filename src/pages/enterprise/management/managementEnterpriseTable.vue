@@ -27,7 +27,6 @@
           </div>
         </div>
 
-        <!-- Filter -->
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
             <div class="row g-3">
               <div class="col-md-3">
@@ -48,11 +47,10 @@
                   <i class="fa fa-search me-2"></i>
                   <span>Terapkan Filter</span>
               </button>
-            </div>             
+            </div>          
         </div>
       </div>
 
-      <!-- Tabel -->
       <div class="table-responsive signal-table">
         <table class="table table-hover">
           <thead>
@@ -71,27 +69,37 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'tanggal_sk' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
+              <th scope="col" @click="sortBy('namawilayah')">
+                Desa
+                <i class="fa fa-sort-asc" v-if="sortColumn === 'namawilayah' && sortDirection === 'asc'"></i>
+                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
+                <i class="fa fa-sort" v-else></i>
+              </th>
               <th scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="5" class="text-center p-5">
+              <td colspan="6" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Loading...</span>
                 </div>
                 <p class="mt-2">Memuat data...</p>
               </td>
-            </tr>    
+            </tr>  
             <template v-else>
-              <tr v-for="(item, index) in managements" :key="item.idpengurus">
+              <tr v-if="managements.length === 0">
+                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              </tr>
+              <tr v-else v-for="(item, index) in managements" :key="item.idpengurus">
                 <th scope="row"> {{ (currentPage - 1) * perPage + index + 1 }}</th>
                 <td>
                   <img :src="item.usaha?.logousaha" alt="Logo Usaha" style="height: 40px; width: auto;" v-if="item.usaha?.logousaha">
                   <span v-else class="text-muted">-</span>
                 </td>
                 <td>{{ item.usaha?.namausaha || '-' }}</td>
-                <td>{{ item.tanggal_sk || '-' }}</td>
+                <td>{{ formatDate(item.tanggal_sk) }}</td>
+                <td>{{ item.wilayah.namawilayah || '-' }}</td>
                 <td>
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openSkFile(item.filesk)" title="Lihat File SK">
@@ -106,14 +114,10 @@
                   </div>
                 </td>
               </tr>
-              <tr v-if="paginatedManagements.length === 0">
-                <td colspan="5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
-              </tr>
             </template>  
           </tbody>
         </table>
 
-        <!-- Pagination -->
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center mt-3 px-3 pb-3">
           <div class="mt-2">
             <span v-if="totalItems > 0" class="text-muted">
@@ -163,9 +167,6 @@ export default {
     };
   },
   computed: {
-    paginatedManagements() {
-      return this.managements;
-    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -199,6 +200,12 @@ export default {
     await this.fetchManagements();
   },
   methods: {
+    formatDate(dateString) {
+      if (!dateString) return '-';
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('id-ID', options).format(date);
+    },
     openAddModal() {
       this.managementBeingEdited = null;
       this.isModalVisible = true;
@@ -244,7 +251,7 @@ export default {
         
         const response = await getManagements(params);
         const managementData = response.data?.data || response.data?.[0]?.data || [];
-        const meta = response.data?.meta?.pagination || response.data?.[0]?.meta?.pagination || {};
+        const meta = response.data?.meta?.pagination || response.data?.[0]?.meta?.pagination || {};
 
         this.managements = managementData;
         this.totalItems = meta.total || managementData.length;
@@ -305,12 +312,10 @@ export default {
       this.fetchManagements();
     },
     resetFilters() {
-      this.filters.namadesa = '';
-      this.filters.tahunawal = '';
-      this.filters.tahunakhir = '';
+      this.filters.namausaha = '';
       this.filters.tanggal_sk = '';
       this.sortColumn = 'created_at'; 
-      this.sortDirection = 'desc';
+      this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchManagements();
     },
@@ -333,5 +338,6 @@ th i.fa {
 }
 .table td, .table th {
   padding-right: 1.7rem; 
+  vertical-align: middle;
 }
 </style>

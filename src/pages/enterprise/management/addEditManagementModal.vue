@@ -10,12 +10,24 @@
         <div class="modal-body">
           <form @submit.prevent="submitForm">
             <div class="mb-3">
-              <label class="form-label">Nama Usaha</label>
-              <select class="form-select" v-model="formData.idusaha" required :disabled="isUsahaListLoading">
+              <label class="form-label">Desa</label>
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isUsahaListLoading">
                 <option disabled value="">
-                  {{ isUsahaListLoading ? 'Memuat...' : 'Pilih Usaha' }}
+                  {{ isUsahaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
-                <option v-for="usaha in usahaList" :key="usaha.idusaha" :value="usaha.idusaha">
+                <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
+                  {{ desa.wilayah.namawilayah }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">Nama Usaha</label>
+              <select class="form-select" v-model="formData.idusaha" required :disabled="!formData.iddesa || isUsahaListLoading">
+                <option disabled value="">
+                  {{ isUsahaListLoading ? 'Memuat...' : (formData.iddesa ? 'Pilih Usaha' : 'Pilih Desa terlebih dahulu') }}
+                </option>
+                <option v-for="usaha in filteredUsahaList" :key="usaha.idusaha" :value="usaha.idusaha">
                   {{ usaha.namausaha }}
                 </option>
               </select>
@@ -56,9 +68,11 @@
 <script>
 import { addManagement, updateManagement } from '@/services/general/enterprise/management'; 
 import { getProfileEnterprises } from '@/services/general/enterprise/profileEnterprise';
+import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
 
 const initialFormData = {
+  iddesa: '',
   idusaha: '',
   tanggal_sk: '',
   filesk: null,
@@ -74,6 +88,7 @@ export default {
       formData: { ...initialFormData },
       selectedSkFile: null,
       skFileName: '',
+      desaList: [],
       usahaList: [],
       isUsahaListLoading: false,
       isLoading: false,
@@ -84,12 +99,19 @@ export default {
   computed: {
     isEditMode() {
       return !!this.managementToEdit;
+    },
+    filteredUsahaList() {
+      if (!this.formData.iddesa) {
+        return [];
+      }
+      return this.usahaList.filter(usaha => usaha.iddesa === this.formData.iddesa);
     }
   },
   watch: {
     managementToEdit: {
       handler(newData) {
         if (newData) {
+          this.formData.iddesa = newData.usaha?.iddesa;
           this.formData.idusaha = newData.idusaha;
           this.formData.tanggal_sk = newData.tanggal_sk;
           this.formData.filesk = newData.filesk;
@@ -102,9 +124,15 @@ export default {
       },
       immediate: true,
       deep: true,
+    },
+    'formData.iddesa'(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.formData.idusaha = '';
+      }
     }
   },
   created() {
+    this.fetchDesaList();
     this.fetchUsahaList();
   },
   methods: {
@@ -114,6 +142,17 @@ export default {
     handleOverlayClick(e) {
       if (e.target === e.currentTarget)
         this.closeModal();
+    },
+    async fetchDesaList() {
+      this.isUsahaListLoading = true;
+      try {
+        const response = await getProfiles({ limit: -1 });
+        this.desaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar desa");
+      } finally {
+        this.isUsahaListLoading = false;
+      }
     },
     async fetchUsahaList() {
       this.isUsahaListLoading = true;
@@ -200,5 +239,4 @@ export default {
 .text-danger { 
   color: #dc3545 !important; 
 }
-
 </style>

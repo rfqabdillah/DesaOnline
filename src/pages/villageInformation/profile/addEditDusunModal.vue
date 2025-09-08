@@ -23,7 +23,7 @@
                 {{ filteredResidents.length > 0 ? 'Pilih Kepala Dusun' : 'Tidak ada penduduk di desa ini' }}
               </option>
               <option v-for="resident in filteredResidents" :key="resident.idpenduduk" :value="resident.idpenduduk">
-                {{ resident.nama }})
+                {{ resident.nama }}
               </option>
             </select>
           </div>
@@ -60,7 +60,7 @@ export default {
   data() {
     return {
       formData: { ...initialFormData },
-      residents: [], // Master list of all residents
+      residents: [], 
       isLoading: false,
       errorMessage: null,
       toast: useToast(),

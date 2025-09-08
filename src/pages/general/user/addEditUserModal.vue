@@ -57,6 +57,19 @@
               </select>
             </div>
 
+            <!-- Desa -->
+            <div class="mb-3">
+              <label class="form-label">Desa</label>
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
+                <option disabled value="">
+                  {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
+                </option>
+                <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
+                  {{ desa.wilayah.namawilayah }}
+                </option>
+              </select>
+            </div>
+
             <!-- Gender -->
             <div class="mb-3">
               <label class="form-label">Gender</label>
@@ -121,6 +134,7 @@
 </template>
 
 <script>
+import { getProfiles } from '@/services/general/villageInformation/profile';
 import { getRoles } from '@/services/referensi/roles';
 import { addUser, updateUser } from '@/services/referensi/users'; 
 import { useToast } from "vue-toastification";
@@ -131,6 +145,7 @@ const initialFormData = {
   password: '',
   confirm_password: '',
   idlevel: '', 
+  iddesa: '', 
   gender: '',
   pob: '', 
   dob: '', 
@@ -150,6 +165,7 @@ export default {
       selectedPhotoFile: null,
       photoPreviewUrl: null, 
       roleList: [], 
+      desaList: [], 
       isListLoading: false, 
       isLoading: false,
       errorMessage: null,
@@ -184,6 +200,7 @@ export default {
   },
   created() {
     this.fetchRoleList();
+    this.fetchDesaList();
   },
   beforeUnmount() {
     if (this.photoPreviewUrl) {
@@ -205,6 +222,17 @@ export default {
         this.roleList = response.data?.data || response.data?.[0]?.data || [];
       } catch (error) {
         this.toast.error("Gagal memuat daftar role");
+      } finally {
+        this.isListLoading = false;
+      }
+    },
+    async fetchDesaList() {
+      this.isListLoading = true;
+      try {
+        const response = await getProfiles({limit: -1}); 
+        this.desaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar desa");
       } finally {
         this.isListLoading = false;
       }
@@ -245,6 +273,7 @@ export default {
       data.append('record[name]', this.formData.name);
       data.append('record[email]', this.formData.email);
       data.append('record[idlevel]', this.formData.idlevel);
+      data.append('record[iddesa]', this.formData.iddesa);
       data.append('record[gender]', this.formData.gender);
       data.append('record[pob]', this.formData.pob);
       data.append('record[dob]', this.formData.dob);

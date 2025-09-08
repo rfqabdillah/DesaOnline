@@ -10,12 +10,24 @@
         <div class="modal-body">
           <form @submit.prevent="submitForm">
             <div class="mb-3">
-              <label class="form-label">Nama Usaha</label>
-              <select class="form-select" v-model="formData.idusaha" required :disabled="isListLoading">
+              <label class="form-label">Desa</label>
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
                 <option disabled value="">
-                  {{ isListLoading ? 'Memuat...' : 'Pilih Nama Usaha' }}
+                  {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
-                <option v-for="usaha in usahaList" :key="usaha.idusaha" :value="usaha.idusaha">
+                <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
+                  {{ desa.wilayah.namawilayah }}
+                </option>
+              </select>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Nama Usaha</label>
+              <select class="form-select" v-model="formData.idusaha" required :disabled="!formData.iddesa || isListLoading">
+                <option disabled value="">
+                  {{ isListLoading ? 'Memuat...' : (formData.iddesa ? 'Pilih Nama Usaha' : 'Pilih Desa terlebih dahulu') }}
+                </option>
+                <option v-for="usaha in filteredUsahaList" :key="usaha.idusaha" :value="usaha.idusaha">
                   {{ usaha.namausaha }}
                 </option>
               </select>
@@ -70,11 +82,13 @@
 import { addReport, updateReport } from "@/services/general/enterprise/reports";
 import { getProfileEnterprises } from '@/services/general/enterprise/profileEnterprise'; 
 import { getReportPeriods } from '@/services/referensi/reportPeriods'; 
+import { getProfiles } from '@/services/general/villageInformation/profile'; 
 import { useToast } from "vue-toastification";
 
 const initialFormData = {
   selectedFile: null,
   FileName: '',
+  iddesa: '', 
   idperiodelaporan: '',
   idusaha: '',
   tanggallaporan: '',
@@ -89,8 +103,9 @@ export default {
   data() {
     return {
       formData: { ...initialFormData },
-      documentTypeList: [],
-      desaList: [],
+      desaList: [], 
+      usahaList: [], 
+      reportPeriodeList: [],
       isListLoading: false,
       isLoading: false,
       errorMessage: null,
@@ -100,12 +115,19 @@ export default {
   computed: {
     isEditMode() {
       return !!this.reportToEdit;
+    },
+    filteredUsahaList() {
+      if (!this.formData.iddesa) {
+        return [];
+      }
+      return this.usahaList.filter(usaha => usaha.iddesa === this.formData.iddesa);
     }
   },
   watch: {
     reportToEdit: {
       handler(newData) {
         if (newData) {
+          this.formData.iddesa = newData.usaha?.iddesa;
           this.formData.idperiodelaporan = newData.idperiodelaporan;
           this.formData.idusaha = newData.idusaha;
           this.formData.tanggallaporan = newData.tanggallaporan;
@@ -119,9 +141,15 @@ export default {
       },
       immediate: true,
       deep: true,
+    },
+    'formData.iddesa'(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.formData.idusaha = '';
+      }
     }
   },
   async created() {
+    await this.fetchDesaList();
     await this.fetchUsahaList();
     await this.fetchPeriodeList();
   },
@@ -132,6 +160,17 @@ export default {
     handleOverlayClick(e) {
       if (e.target === e.currentTarget)
         this.closeModal();
+    },
+    async fetchDesaList() {
+      this.isListLoading = true;
+      try {
+        const response = await getProfiles({ limit: -1 });
+        this.desaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar desa");
+      } finally {
+        this.isListLoading = false;
+      }
     },
     async fetchUsahaList() {
       this.isListLoading = true;
@@ -229,5 +268,4 @@ export default {
 .text-danger { 
   color: #dc3545 !important; 
 }
-
 </style>

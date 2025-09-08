@@ -1,9 +1,9 @@
 <template>
     <div>
-        <Breadcrumbs main="Umum" :title="$route.meta.title" />
+        <Breadcrumbs main="Dokumen" :title="$route.meta.title" />
         <div class="container-fluid">
             <div class="row">
-                <RegionsTable />
+                <RegulationTable />
             </div>
         </div>
 
@@ -11,11 +11,11 @@
 </template>
 
 <script>
-import RegionsTable from './regionsTable.vue';
+import RegulationTable from './regulationsTable.vue';
 
 export default {
     components: {
-        RegionsTable,
+        RegulationTable,
     }
 }
 </script>

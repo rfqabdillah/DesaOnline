@@ -360,6 +360,8 @@ export default {
       this.filters.idkategoriartikel = '';
       this.filters.namawilayah = '';
       this.filters.created_at = '';
+      this.sortColumn = 'created_at';
+      this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchArticles();
     },

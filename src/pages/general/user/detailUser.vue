@@ -36,6 +36,12 @@
               <h5><i class="fa fa-envelope me-2"></i>Email</h5>
               <p>{{ userDetail.email || '-' }}</p>
             </div>
+            
+            <div class="detail-item mb-3">
+              <h5><i class="fa fa-university me-2"></i>Desa</h5>
+              <p>{{ userDetail.wilayah?.namawilayah || '-' }}</p>
+            </div>
+            
             <div class="detail-item mb-3">
               <h5><i class="fa fa-phone me-2"></i>Telepon</h5>
               <p>{{ userDetail.telp || '-' }}</p>
@@ -190,81 +196,67 @@ export default {
   align-items: center;
   z-index: 1050;
 }
-
 .modal-content {
   background: white;
   border-radius: 8px;
   width: 90%;
-  max-width: 800px; /* Lebar disesuaikan untuk detail pengguna */
+  max-width: 800px;
   max-height: 90vh;
   box-shadow: 0 5px 15px rgba(0,0,0,.5);
   display: flex;
   flex-direction: column;
 }
-
 .modal-header, .modal-footer {
   padding: 1rem;
   flex-shrink: 0;
 }
-
 .modal-body {
   padding: 2rem;
   overflow-y: auto;
   flex-grow: 1;
 }
-
 .modal-header {
   border-bottom: 1px solid #dee2e6;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
 .modal-footer {
   border-top: 1px solid #dee2e6;
   display: flex;
   justify-content: flex-end;
 }
-
 .user-name {
   font-weight: 600;
   color: #333;
 }
-
 .user-role {
   color: #6c757d;
   font-size: 0.9rem;
 }
-
 .detail-item h5 {
   font-size: 0.9rem;
   font-weight: 500;
   color: #555;
   margin-bottom: 0.25rem;
 }
-
 .detail-item p {
   font-size: 1rem;
   color: #212529;
   margin-bottom: 0;
 }
-
 .address-text {
-  white-space: pre-wrap; /* Agar baris baru pada alamat tetap ditampilkan */
+  white-space: pre-wrap; 
   line-height: 1.6;
 }
-
-/* ADDED: Style baru untuk foto profil */
 .profile-photo {
   width: 150px;
   height: 150px;
-  border-radius: 50%; /* Membuat gambar menjadi lingkaran */
+  border-radius: 50%; 
   object-fit: cover;
   border: 3px solid #dee2e6;
   background-color: #f8f9fa;
 }
-
-/* Hapus style yang tidak perlu */
 .featured-image, .text-content, .detail-section {
     display: none;
 }

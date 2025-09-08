@@ -10,14 +10,21 @@ import IndexProfile from "@/pages/villageInformation/profile/index.vue";
 import IndexOfficials from "@/pages/villageGovernment/officials/index.vue";
 import IndexTenurePeriods from "@/pages/villageGovernment/tenurePeriods/index.vue";
 
-import IndexResident from "@/pages/population/residents/index.vue"
-import IndexGroups from "@/pages/population/groups/index.vue"
+import IndexResident from "@/pages/population/residents/index.vue";
+import IndexGroups from "@/pages/population/groups/index.vue";
 
-import IndexPrograms from "@/pages/activities/programs/index.vue"
-import IndexActivityCategories from "@/pages/activities/activityCategories/index.vue"
+import IndexIncomingLetters from "@/pages/documents/incomingLetters/index.vue";
+import IndexOutgoingLetters from "@/pages/documents/outgoingLetters/index.vue";
+import IndexRegulations from "@/pages/documents/regulations/index.vue";
 
-import IndexVehicles from "@/pages/assets/vehicles/index.vue"
-import indexItems from "@/pages/assets/items/index.vue"
+import IndexPrograms from "@/pages/activities/programs/index.vue";
+import IndexActivityCategories from "@/pages/activities/activityCategories/index.vue";
+
+import IndexLands from "@/pages/assets/lands/index.vue";
+import IndexVehicles from "@/pages/assets/vehicles/index.vue";
+import indexItems from "@/pages/assets/items/index.vue";
+
+import IndexParcel from "@/pages/landAffairs/parcels/index.vue";
 
 import IndexProfileEnterprise from "@/pages/enterprise/profile/index.vue";
 import IndexManagement from '@/pages/enterprise/management/index.vue';
@@ -57,9 +64,9 @@ import IndexOfficialStatus from "@/pages/government/officialStatus/index.vue";
 import IndexBusinessFields from "@/pages/bumdes/businessFields/index.vue";
 import IndexReportPeriods from "@/pages/bumdes/reportPeriods/index.vue";
 
-import IndexIncomingLetterTypes from "@/pages/documents/incomingLetterTypes/index.vue";
-import IndexOutgoingLetterTypes from "@/pages/documents/outgoingLetterTypes/index.vue";
-import IndexRegulationTypes from "@/pages/documents/regulationTypes/index.vue";
+import IndexIncomingLetterTypes from "@/pages/archives/incomingLetterTypes/index.vue";
+import IndexOutgoingLetterTypes from "@/pages/archives/outgoingLetterTypes/index.vue";
+import IndexRegulationTypes from "@/pages/archives/regulationTypes/index.vue";
 
 import IndexLegalStatus from "@/pages/inventory/legalStatus/index.vue";
 import IndexLandOrigins from "@/pages/inventory/landOrigins/index.vue";
@@ -194,7 +201,7 @@ const routes =[
           {
             path: "incoming-letters",
             name: "dokumen_suratMasuk",
-            component: IndexUser,
+            component: IndexIncomingLetters,
             meta: {
               title: "Surat Masuk",
             },
@@ -202,7 +209,7 @@ const routes =[
           {
             path: "outgoing-letters",
             name: "dokumen_suratKeluar",
-            component: IndexUser,
+            component: IndexOutgoingLetters,
             meta: {
               title: "Surat Keluar",
             },
@@ -210,7 +217,7 @@ const routes =[
           {
             path: "regulations",
             name: "dokumen_peraturanRegulasi",
-            component: IndexUser,
+            component: IndexRegulations,
             meta: {
               title: "Peraturan/Regulasi",
             },
@@ -283,27 +290,11 @@ const routes =[
         },
         children: [
           {
-            path: "land",
+            path: "lands",
             name: "aset_tanah",
-            component: IndexUser,
+            component: IndexLands,
             meta: {
               title: "Tanah",
-            },
-          },
-          {
-            path: "buildings",
-            name: "aset_bangunan",
-            component: IndexUser,
-            meta: {
-              title: "Bangunan",
-            },
-          },
-          {
-            path: "rooms",
-            name: "aset_ruangan",
-            component: IndexUser,
-            meta: {
-              title: "Ruangan",
             },
           },
           {
@@ -341,18 +332,10 @@ const routes =[
         children: [
           {
             path: "parcels",
-            name: "pertanahan_percil",
-            component: IndexUser,
+            name: "pertanahan_persil",
+            component: IndexParcel,
             meta: {
-              title: "Data Percil",
-            },
-          },
-          {
-            path: "c-ledger",
-            name: "pertanahan_cDesa",
-            component: IndexUser,
-            meta: {
-              title: "C Desa",
+              title: "Data Persil",
             },
           },
         ]

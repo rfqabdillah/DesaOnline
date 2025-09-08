@@ -91,6 +91,12 @@
                 <i class="fa fa-sort" v-else></i>
               </th>
               <th scope="col">Tempat, Tanggal Lahir</th>
+              <th scope="col" @click="sortBy('namawilayah')">
+                Desa
+                <i class="fa fa-sort-asc" v-if="sortColumn === 'namawilayah' && sortDirection === 'asc'"></i>
+                <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
+                <i class="fa fa-sort" v-else></i>
+              </th>
               <th scope="col">Aksi</th>
             </tr>
           </thead>
@@ -110,6 +116,7 @@
                 <td>{{ item.nama || '-'}}</td>
                 <td>{{ item.jk.namajeniskelamin || '-'}}</td>
                 <td>{{ [item.tempatlahir, formatTanggal(item.tanggallahir)].filter(Boolean).join(', ') || '-' }}</td>
+                <td>{{ item.wilayah.namawilayah || '-'}}</td>
                 <td>
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail Data">

@@ -9,9 +9,9 @@
 
         <div class="modal-body">
           <form @submit.prevent="submitForm">
-            <div class="col-md-8 mb-3">
+            <div class="col mb-3">
               <label class="form-label">Nama Kategori Artikel</label>
-              <input type="text" class="form-control" v-model="formData.namakategoriartikel" placeholder="Masukkan nama kategori artikell" required />
+              <input type="text" class="form-control" v-model="formData.namakategoriartikel" placeholder="Masukkan nama kategori artikel" required />
             </div>
             <div class="mb-3">
               <label class="form-label">Nama Desa</label>
@@ -42,7 +42,7 @@
 </template>
 
 <script>
-import { addArticleCategory, updateArticleCategory } from '@/services/general/website/documentTypes'; 
+import { addArticleCategory, updateArticleCategory } from '@/services/general/website/articleCategory'; 
 import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
 

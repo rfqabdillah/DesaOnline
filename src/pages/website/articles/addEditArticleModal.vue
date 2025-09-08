@@ -18,11 +18,6 @@
               <label class="form-label">Judul Artikel</label>
               <input type="text" class="form-control" v-model="formData.judul" required />
             </div>
-
-            <div class="mb-3">
-              <label class="form-label">Slug</label>
-              <input type="text" class="form-control" v-model="generatedSlug" disabled />
-            </div>
             
             <div class="mb-3">
               <label class="form-label">Desa</label>
@@ -64,7 +59,14 @@
             
             <div class="mb-3">
               <label class="form-label">Konten</label>
-              <textarea class="form-control" rows="5" v-model="formData.konten" placeholder="Tulis konten artikel di sini" required></textarea>
+              <QuillEditor 
+                theme="snow" 
+                toolbar="full" 
+                v-model:content="formData.konten" 
+                contentType="html"
+                placeholder="Tulis konten artikel di sini..."
+                style="min-height: 200px;"
+              />
             </div>
             
             <div v-if="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
@@ -84,7 +86,8 @@
 </template>
 
 <script>
-import axios from 'axios';
+import { QuillEditor } from '@vueup/vue-quill';
+import { getDetailUsers } from "@/services/referensi/users";
 import { addArticle, updateArticle } from "@/services/general/website/article"; 
 import { getProfiles } from "@/services/general/villageInformation/profile";
 import { getArticleCategories } from "@/services/general/website/articleCategory";
@@ -102,6 +105,9 @@ const initialFormData = {
 
 export default {
   name: 'addEditArticleModal',
+  components: {
+    QuillEditor,
+  },
   props: {
     articleToEdit: { type: Object, default: null },
   },
@@ -166,19 +172,12 @@ export default {
     async fetchCurrentUser() {
       const userData = JSON.parse(localStorage.getItem('User')) || {};
       const userId = userData.id_pengguna; 
-      const token = userData.token;
 
-      if (userId && token) {
+      if (userId) {
         this.formData.idpengguna = userId;
         try {
-          const res = await axios.get('/api/api', {
-            params: { act: 'users', key: userId },
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            }
-          });
-          const userInfo = res.data?.[0]?.data?.[0];
+          const response = await getDetailUsers(userId);
+          const userInfo = response.data?.[0]?.data?.[0];
           this.publisherName = userInfo?.name || 'Pengguna tidak ditemukan';
         } catch (error) {
           console.error('Gagal mengambil nama user:', error);
@@ -214,7 +213,6 @@ export default {
       }
     },
     
-    // MODIFIKASI: Nama method dan logika disesuaikan
     handleGambarUpload(event) {
       const file = event.target.files[0];
       if (!file) {
@@ -222,7 +220,6 @@ export default {
         this.gambarPreviewUrl = null;
         return;
       }
-
       if (file.type.startsWith('image/')) {
         this.selectedFile = file;
         this.gambarPreviewUrl = URL.createObjectURL(file);

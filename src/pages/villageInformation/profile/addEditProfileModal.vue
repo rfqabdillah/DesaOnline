@@ -201,7 +201,7 @@ export default {
 
     handleRegionSelection(region) {
       this.formData.idwilayah = region.id;       
-      this.selectedRegionName = region.name;    // Nampilin nama di input
+      this.selectedRegionName = region.name;    
       this.closeRegionSelector();
     },
 
@@ -212,7 +212,7 @@ export default {
         return;
       }
 
-      console.log('File yang dipilih:', file); 
+      // console.log('File yang dipilih:', file); 
 
       if (fieldName === 'logo') {
         this.selectedLogoFile = file;
