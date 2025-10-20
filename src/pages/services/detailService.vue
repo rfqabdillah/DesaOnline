@@ -42,14 +42,14 @@
 
           <div class="detail-section">
             <h4><i class="fa fa-file-text-o me-2"></i>Persyaratan</h4>
-            <p class="text-content">{{ profile.persyaratan || 'Belum ada persyaratan yang ditentukan.' }}</p>
+            <div class="text-content" v-html="profile.persyaratan || 'Belum ada persayaratan yang ditentukan.'"></div>
           </div>
 
           <hr>
 
           <div class="detail-section">
             <h4><i class="fa fa-list-ol me-2"></i>Tahapan</h4>
-            <p class="text-content">{{ profile.tahapan || 'Belum ada tahapan yang ditentukan.' }}</p>
+            <div class="text-content" v-html="profile.tahapan || 'Belum ada tahapan yang ditentukan.'"></div>
           </div>
         </div>
       </div>

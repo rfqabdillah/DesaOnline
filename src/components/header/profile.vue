@@ -1,7 +1,11 @@
 <template>
   <li class="profile-nav onhover-dropdown pe-0 py-0">
     <div class="media profile-media">
-      <img class="b-r-10" src="@/assets/images/dashboard/profile.png" alt="" />
+      <img 
+        class="b-r-10 profile-img" 
+        :src="user.photo || require('@/assets/images/dashboard/profile.png')" 
+        alt="Foto Profil" 
+      />
       <div class="media-body">
         <span>{{ user.name }}</span>
         <p class="mb-0 font-roboto">
@@ -9,79 +13,94 @@
         </p>
       </div>
     </div>
+
     <ul class="profile-dropdown onhover-show-div">
       <li>
-        <vue-feather type="user"></vue-feather><span>Account</span>
+        <vue-feather type="user"></vue-feather>
+        <span>Account</span>
       </li>
       <li @click="logout" style="cursor: pointer">
-        <vue-feather type="log-in"></vue-feather><span>Log out</span>
+        <vue-feather type="log-in"></vue-feather>
+        <span>Log out</span>
       </li>
     </ul>
   </li>
 </template>
 
 <script>
-import apiClient from '@/services/users'; 
+import apiClient from '@/services/users';
 
 export default {
   name: 'Profile',
   data() {
     return {
       user: {
-        name: 'Pengguna',     
-        role_name: 'Role' 
+        name: 'Pengguna',
+        role_name: 'Role',
+        photo: null
       }
     };
   },
   mounted() {
-    this.fetchUserProfile();
+    const storedUserData = localStorage.getItem('userData');
+
+    if (storedUserData) {
+      try {
+        const parsedData = JSON.parse(storedUserData);
+        const userProfile = parsedData.data?.[0];
+
+        if (userProfile) {
+          this.user.name = userProfile.nama || 'Pengguna';
+          this.user.role_name = userProfile.role?.nama_level || 'Role';
+          this.user.photo = userProfile.foto 
+            ? userProfile.foto.startsWith('http')
+              ? userProfile.foto
+              : `${import.meta.env.VITE_BASE_URL || ''}/${userProfile.foto}`
+            : null;
+        }
+      } catch (error) {
+        console.error("Gagal parse user data dari localStorage:", error);
+      }
+    }
   },
   methods: {
-    fetchUserProfile() {
-      const userData = JSON.parse(localStorage.getItem('User')) || {};
-      const userId = userData.id_pengguna;
+    async logout() {
+      const result = await this.$swal.fire({
+        text: "Apakah Anda yakin ingin keluar?",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#0d6efd', 
+        cancelButtonColor: '#efefef',
+        confirmButtonText: 'Konfirmasi',
+        cancelButtonText: 'Batal'
+      });
 
-      if (!userId) {
-        return;
+      if (result.isConfirmed) {
+        try {
+          apiClient.get('/logout').catch(err => {
+            console.error('API logout gagal, proses logout klien tetap dilanjutkan:', err);
+          });
+        } finally {
+          localStorage.removeItem('token');
+          localStorage.removeItem('userData');
+          
+          this.$router.replace('/auth');
+          this.$swal.fire(
+            'Berhasil!',
+            'Anda telah berhasil keluar.',
+            'success'
+          );
+        }
       }
-
-      apiClient.get('', { 
-        params: { 
-          act: 'users',
-          key: userId
-        },
-        headers: {
-          'Authorization': `Bearer ${userData.token}`
-        }
-      })
-      .then(res => {
-        const userInfo = res.data?.[0]?.data?.[0]; 
-        
-        if (userInfo) {
-          this.user.name = userInfo.name || 'Pengguna';
-          this.user.role_name = userInfo.roles?.role_name || 'Role';
-        }
-      })
-      .catch(err => {
-        console.error('Gagal mengambil data user:', err);
-        // Jika token tidak valid (error 401/403), paksa logout
-        if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-          this.logout();
-        }
-      });
-    },
-
-    logout() {
-      const token = JSON.parse(localStorage.getItem('User'))?.token;
-
-      apiClient.get('/logout', {
-        headers: { Authorization: `Bearer ${token}` }
-      })
-      .finally(() => {
-        localStorage.removeItem('User');
-        this.$router.replace('/auth');
-      });
     }
   }
 };
 </script>
+
+<style scoped>
+.profile-img {
+  width: 35px;
+  height: 35px;
+  object-fit: cover;
+}
+</style>

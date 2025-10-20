@@ -10,8 +10,8 @@
         <div class="modal-body">
           <form @submit.prevent="submitForm">
             <div class="mb-3">
-              <label class="form-label">Nama Desa <span class="text-danger">*</span></label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading">
+              <label class="form-label">Nama Desa </label>
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isDesaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -22,7 +22,7 @@
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Bidang Usaha <span class="text-danger">*</span></label>
+              <label class="form-label">Bidang Usaha</label>
               <select class="form-select" v-model="formData.idbidangusaha" required :disabled="isBusinessFieldsLoading">
                 <option disabled value="">
                   {{ isBusinessFieldsLoading ? 'Memuat...' : 'Pilih Bidang Usaha' }}
@@ -34,7 +34,7 @@
             </div>
 
             <div class="mb-3">
-              <label class="form-label">Nama Usaha <span class="text-danger">*</span></label>
+              <label class="form-label">Nama Usaha</label>
               <input type="text" class="form-control" v-model="formData.namausaha" placeholder="Masukkan nama usaha" required />
             </div>
 
@@ -110,12 +110,17 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.profileToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     profileToEdit: {
@@ -129,6 +134,11 @@ export default {
           this.formData.logousaha = newData.logousaha;
         } else {
           this.formData = { ...initialFormData };
+
+          // Jika bukan superadmin, set iddesa saat form direset
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.selectedLogoFile = null;
         this.logoPreviewUrl = null;
@@ -140,6 +150,7 @@ export default {
   },
   created() {
     this.fetchDesaList();
+    this.loadUserData();
     this.fetchBusinessFields(); 
   },
   beforeUnmount() {
@@ -148,6 +159,27 @@ export default {
     }
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },

@@ -11,7 +11,7 @@
           <form @submit.prevent="submitForm">
           <div class="mb-3">
               <label class="form-label">Nama Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading ||!isSuperadmin">
                 <option disabled value="">
                   {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -22,11 +22,11 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Nama Kategori Kegiatan</label>
-              <select class="form-select" v-model="formData.idkategorikegiatan" required :disabled="isListLoading">
+              <select class="form-select" v-model="formData.idkategorikegiatan" required :disabled="!formData.iddesa || isListLoading">
                 <option disabled value="">
-                  {{ isListLoading ? 'Memuat...' : 'Pilih Kategori Kegiatan' }}
+                  {{ isListLoading ? 'Memuat...' : (formData.iddesa ? 'Pilih Kategori Kegiatan' : 'Pilih Desa terlebih dahulu') }}
                 </option>
-                <option v-for="category in categoryList" :key="category.idkategorikegiatan" :value="category.idkategorikegiatan">
+                <option v-for="category in filteredCategoryList" :key="category.idkategorikegiatan" :value="category.idkategorikegiatan">
                   {{ category.namakategorikegiatan }}
                 </option>
               </select>
@@ -38,7 +38,15 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Konten Program</label>
-              <textarea class="form-control" v-model="formData.konten" rows="4" placeholder="Tuliskan isi konten program" required ></textarea>
+              <div class="quill-editor-container">
+                <QuillEditor 
+                  theme="snow" 
+                  toolbar="essentials" 
+                  v-model:content="formData.konten" 
+                  contentType="html"
+                  placeholder="Tulis konten program di sini"
+                />
+              </div>
             </div>
 
             <div class="row">
@@ -91,6 +99,7 @@ import { addProgram, updateProgram } from '@/services/general/activities/program
 import { getCategories} from '@/services/general/activities/activityCategories'; 
 import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
+import { QuillEditor } from '@vueup/vue-quill';
 
 const initialFormData = {
   idkategorikegiatan: '',
@@ -105,6 +114,9 @@ const initialFormData = {
 
 export default {
   name: 'addEditProgramModal',
+  components: {
+    QuillEditor,
+  },
   props: {
     programToEdit: { type: Object, default: null },
   },
@@ -112,18 +124,29 @@ export default {
     return {
       formData: { ...initialFormData },
       selectedPosterFile: null,
-      PosterPreviewUrl: null, 
+      posterPreviewUrl: null, 
       categoryList: [],
       desaList: [],
       isListLoading: false,
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.programToEdit;
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    filteredCategoryList() {
+      if (!this.formData.iddesa) {
+        return []; 
+      }
+      return this.categoryList.filter(category => category.iddesa === this.formData.iddesa);
     }
   },
   watch: {
@@ -140,16 +163,24 @@ export default {
           this.formData.poster = newData.poster;
         } else {
           this.formData = { ...initialFormData };
+          
+          if (!this.isSuperadmin && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.errorMessage = null;
       },
       immediate: true,
       deep: true,
+    },
+    'formData.iddesa'(newValue, oldValue) {
+      if (newValue !== oldValue) {
+        this.formData.idkategorikegiatan = '';
+      }
     }
   },
   created() {
-    this.fetchDesaList();
-    this.fetchCategoryList();
+    this.initializeComponent();
   },
   beforeUnmount() {
     if (this.posterPreviewUrl) {
@@ -157,87 +188,111 @@ export default {
     }
   },
   methods: {
-    closeModal() {
-      this.$emit('close');
-    },
-    handleOverlayClick(e) {
-      if (e.target === e.currentTarget)
-        this.closeModal();
-    },
-    async fetchDesaList() {
+    async initializeComponent() {
+      this.loadUserData();
       this.isListLoading = true;
       try {
-        const response = await getProfiles({ limit: -1 });
-        this.desaList = response.data?.data || response.data?.[0]?.data || [];
-      } catch (error) {
-        this.toast.error("Gagal memuat daftar desa");
+        await Promise.all([
+          this.fetchDesaList(),
+          this.fetchCategoryList()
+        ]);
       } finally {
         this.isListLoading = false;
       }
     },
-    async fetchCategoryList() {
-      this.isListLoading = true;
-      try {
-        const response = await getCategories({ limit: -1 });
-        this.categoryList = response.data?.data || response.data?.[0]?.data || [];
-      } catch (error) {
-        this.toast.error("Gagal memuat daftar kategori kegiatan");
-      } finally {
-        this.isListLoading = false;
-      }
-    },
-    handlePosterUpload(event) {
-      const file = event.target.files[0];
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
 
-      if (this.posterPreviewUrl) {
-        URL.revokeObjectURL(this.posterPreviewUrl);
-      }
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
+    closeModal() {
+      this.$emit('close');
+    },
+    handleOverlayClick(e) {
+      if (e.target === e.currentTarget)
+        this.closeModal();
+    },
+    async fetchDesaList() {
+      try {
+        const response = await getProfiles({ limit: -1 });
+        this.desaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar desa");
+      }
+    },
+    async fetchCategoryList() {
+      try {
+        const response = await getCategories({ limit: -1 });
+        this.categoryList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar kategori kegiatan");
+      }
+    },
+    handlePosterUpload(event) {
+      const file = event.target.files[0];
+      if (this.posterPreviewUrl) {
+        URL.revokeObjectURL(this.posterPreviewUrl);
+      }
+      if (!file) {
+        this.selectedPosterFile = null;
+        this.posterPreviewUrl = null;
+        return;
+      }
+      this.selectedPosterFile = file;
+      this.posterPreviewUrl = URL.createObjectURL(file);
+    },
+    async submitForm() {
+      this.isLoading = true;
+      this.errorMessage = null;
+      const data = new FormData();
+      
+      data.append('record[idkategorikegiatan]', this.formData.idkategorikegiatan);
+      data.append('record[iddesa]', this.formData.iddesa);
+      data.append('record[judul]', this.formData.judul);
+      data.append('record[konten]', this.formData.konten);
+      data.append('record[tanggalmulai]', this.formData.tanggalmulai);
+      data.append('record[tanggalselesai]', this.formData.tanggalselesai);
+      data.append('record[jampelaksanaan]', this.formData.jampelaksanaan);
+      if (this.selectedPosterFile) {
+        data.append('upload_poster', this.selectedPosterFile);
+      }
+      
+      try {
+        let response;
 
-      if (!file) {
-        this.selectedPosterFile = null;
-        this.posterPreviewUrl = null;
-        return;
-      }
-      this.selectedPosterFile = file;
-      this.posterPreviewUrl = URL.createObjectURL(file);
-    },
-    async submitForm() {
-      this.isLoading = true;
-      this.errorMessage = null;
-      const data = new FormData();
-      
-      data.append('record[idkategorikegiatan]', this.formData.idkategorikegiatan);
-      data.append('record[iddesa]', this.formData.iddesa);
-      data.append('record[judul]', this.formData.judul);
-      data.append('record[konten]', this.formData.konten);
-      data.append('record[tanggalmulai]', this.formData.tanggalmulai);
-      data.append('record[tanggalselesai]', this.formData.tanggalselesai);
-      data.append('record[jampelaksanaan]', this.formData.jampelaksanaan);
-      if (this.selectedPosterFile) {
-        data.append('upload_poster', this.selectedPosterFile);
-      }
-      
-      try {
-        let response;
-
-        if (this.isEditMode) {
-            data.append('_method', 'PUT');
-            response = await updateProgram(this.programToEdit.idkegiatan, data);
-            this.toast.success("Data kegiatan berhasil diperbarui");
-        } else {
-            response = await addProgram(data);
-            this.toast.success("Data kegiatan berhasil ditambah");
-        }
-        this.$emit('save-successful', response.data.data);
-        this.closeModal();
-      } catch (error) {
-        this.errorMessage = error.response?.data?.failed || error.response?.data?.message || 'Gagal menyimpan data. Silakan coba lagi';
-        this.toast.error("Gagal menyimpan data kegiatan");
-      } finally {
-        this.isLoading = false;
-      }
-    }
-  },
+        if (this.isEditMode) {
+            data.append('_method', 'PUT');
+            response = await updateProgram(this.programToEdit.idkegiatan, data);
+            this.toast.success("Data kegiatan berhasil diperbarui");
+        } else {
+            response = await addProgram(data);
+            this.toast.success("Data kegiatan berhasil ditambah");
+        }
+        this.$emit('save-successful', response.data.data);
+        this.closeModal();
+      } catch (error) {
+        this.errorMessage = error.response?.data?.failed || error.response?.data?.message || 'Gagal menyimpan data. Silakan coba lagi';
+        this.toast.error("Gagal menyimpan data kegiatan");
+      } finally {
+        this.isLoading = false;
+      }
+    }
+  },
 };
 </script>
 
@@ -269,6 +324,31 @@ export default {
 }
 .text-danger { 
   color: #dc3545 !important; 
+}
+
+.quill-editor-container {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.quill-editor-container:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border: none !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border: none !important;
+}
+:deep(.ql-editor) {
+  min-height: 200px; 
+  padding: 0.5rem 1rem;
 }
 
 </style>

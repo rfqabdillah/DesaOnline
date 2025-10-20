@@ -90,7 +90,6 @@ export default {
     },
     async submitForm() {
       this.errorMessage = null;
-      // DIUBAH: Menggunakan this.formData
       const { namabidangusaha } = this.formData;
       if ( !namabidangusaha ) {
         this.errorMessage = 'Semua field wajib diisi.';

@@ -68,10 +68,8 @@ export default {
     incomingLetterTypeToEdit: {
       handler(newData) {
         if (newData) {
-          // Mode Edit: Salin data ke formData
           this.formData = { ...newData }; 
         } else {
-          // Mode Tambah: Reset formData dengan benar
           this.formData = { 
             namajenissuratmasuk: '',
           };
@@ -92,7 +90,6 @@ export default {
     },
     async submitForm() {
       this.errorMessage = null;
-      // DIUBAH: Menggunakan this.formData
       const { namajenissuratmasuk } = this.formData;
       if ( !namajenissuratmasuk ) {
         this.errorMessage = 'Semua field wajib diisi.';
@@ -101,11 +98,9 @@ export default {
       this.isLoading = true;
       try {
         if (this.isEditMode) {
-          // DIUBAH: Menggunakan this.formData
           await updateIncomingLetterType(this.incomingLetterTypeToEdit.idjenissuratmasuk, this.formData);
           this.toast.success("Data jenis surat masuk berhasil diperbarui", { icon: 'fa fa-check' });
         } else {
-          // DIUBAH: Menggunakan this.formData
           await addIncomingLetterType(this.formData);
           this.toast.success("Data jenis surat masuk berhasil ditambah", { icon: 'fa fa-check' });
         }

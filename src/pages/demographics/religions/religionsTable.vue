@@ -20,7 +20,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="isSuperAdmin" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -58,26 +58,26 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namaagama' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="isSuperAdmin" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(item, index) in paginatedReligions" :key="item.idagama">
               <th scope="row">{{ (currentPage - 1) * perPage + index + 1 }}</th>
               <td>{{ item.namaagama }}</td>
-              <td>
+              <td v-if="isSuperAdmin">
                 <div class="btn-group">
                   <button class="btn btn-primary btn-sm" @click="openEditModal(item)">
                     <i class="fa fa-pencil"></i>
                   </button>
-                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idagama)">
+                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)">
                     <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="paginatedReligions.length === 0">
-              <td colspan="5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              <td :colspan="isSuperAdmin ? 3 : 2" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
             </tr>
           </tbody>
         </table>
@@ -134,7 +134,7 @@ export default {
   data() {
     return {
       religions: [],
-      sortColumn: '',
+      sortColumn: 'namaagama',
       sortDirection: 'asc',
       isModalVisible: false,
       currentPage: 1,
@@ -144,11 +144,15 @@ export default {
       jumpPage: 1,
       isFilterVisible: false,
       filters: {
-        religion_name: '',
+        namaagama: '',
       },
+      userRole: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
     paginatedReligions() {
       return this.religions;
     },
@@ -185,9 +189,24 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserRole();
     await this.fetchReligions();
   },
   methods: {
+    loadUserRole() {
+        const userDataString = localStorage.getItem('userData'); 
+        if (userDataString) {
+          try {
+            const userData = JSON.parse(userDataString);
+            if (userData && userData.data && userData.data[0] && userData.data[0].role) {
+              this.userRole = userData.data[0].role.nama_level;
+            }
+          } catch (error) {
+            console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+            this.userRole = null; 
+          }
+        }
+      },
     openAddModal() {
       this.religionBeingEdited = null;
       this.isModalVisible = true;
@@ -241,9 +260,9 @@ export default {
         });
       }
     },
-    advancedDeleteAlert(id) {
+    advancedDeleteAlert(item) {
       this.$swal({
-        title: 'Hapus Data Agama',
+        title: `Hapus Agama "${item.namaagama}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -255,7 +274,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteReligion(id);
+            await deleteReligion(item.idagama);
             if (this.religions.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
@@ -292,7 +311,7 @@ export default {
     resetFilters() {
       this.filters.namaagama = '';
       
-      this.sortColumn = '';
+      this.sortColumn = 'namaagama';
       this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchReligions();

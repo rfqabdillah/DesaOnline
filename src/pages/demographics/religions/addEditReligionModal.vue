@@ -101,11 +101,9 @@ export default {
       this.isLoading = true;
       try {
         if (this.isEditMode) {
-          // DIUBAH: Menggunakan this.formData
           await updateReligion(this.religionToEdit.idagama, this.formData);
           this.toast.success("Data agama berhasil diperbarui", { icon: 'fa fa-check' });
         } else {
-          // DIUBAH: Menggunakan this.formData
           await addReligion(this.formData);
           this.toast.success("Data agama berhasil ditambah", { icon: 'fa fa-check' });
         }
@@ -143,5 +141,4 @@ export default {
   display: flex; justify-content: flex-end; gap: 0.5rem;
   border-top: 1px solid #dee2e6;
 }
-.btn-close { border: none; background: transparent; font-size: 1.5rem; }
 </style>

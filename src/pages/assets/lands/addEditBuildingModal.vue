@@ -113,15 +113,31 @@
                 </div>
             </div>
 
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Data GeoJSON</label>
-                <textarea class="form-control" v-model="formData.geojson" rows="3" placeholder="Masukkan data koordinat GeoJSON"></textarea>
+            <div class="mb-3">
+              <label class="form-label">Data GeoJSON</label>
+              <div class="geojson-wrapper">
+                <textarea
+                  class="form-control flex-grow-1"
+                  v-model="formData.geojson"
+                  rows="3"
+                  placeholder="Data koordinat akan muncul di sini"
+                  aria-label="Data GeoJSON"
+                  disabled
+                ></textarea>
+                <button
+                  class="btn btn-primary geojson-btn"
+                  type="button"
+                  @click="openMapDrawer"
+                >
+                  <i class="fa fa-map me-2"></i>
+                  Edit Koordinat / Digitasi
+                </button>
               </div>
-              <div class="col-md-6 mb-3">
-                <label class="form-label">Keterangan</label>
-                <textarea class="form-control" v-model="formData.keterangan" rows="3" placeholder="Tambahkan keterangan jika ada"></textarea>
-              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Keterangan</label>
+              <textarea class="form-control" v-model="formData.keterangan" rows="3" placeholder="Tambahkan keterangan jika ada"></textarea>
             </div>
 
             <div class="mb-3">
@@ -150,6 +166,12 @@
         </div>
       </div>
     </div>
+    <map-drawer-modal
+      v-if="showMapDrawer"
+      :initialGeoJSON="formData.geojson"
+      @close="closeMapDrawer"
+      @save="handleMapSave"
+    />
   </div>
 </template>
 
@@ -162,6 +184,7 @@ import { getConditions } from '@/services/referensi/conditions';
 import { getMultiStoryConstructions } from '@/services/referensi/multiStoryConstruction';
 import { getPhysicalStatuses } from '@/services/referensi/physicalStatus';
 import { useToast } from "vue-toastification";
+import MapDrawerModal from '@/components/form/mapDrawerModal.vue';
 
 const initialFormData = {
   iddesa: '',
@@ -188,6 +211,9 @@ const initialFormData = {
 
 export default {
   name: 'addEditBuildingModal', 
+  components: { 
+    MapDrawerModal,
+  },
   props: {
     buildingToEdit: { type: Object, default: null },
     landData: { type: Object, required: true },
@@ -207,6 +233,7 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      showMapDrawer: false,
     };
   },
   computed: {
@@ -269,6 +296,16 @@ export default {
   methods: {
     closeModal() {
       this.$emit('close');
+    },
+    openMapDrawer() {
+      this.showMapDrawer = true;
+    },
+    closeMapDrawer() {
+      this.showMapDrawer = false;
+    },
+    handleMapSave(newGeoJSON) {
+      this.formData.geojson = newGeoJSON;
+      this.closeMapDrawer(); 
     },
     handleOverlayClick(e) {
       if (e.target === e.currentTarget)
@@ -382,25 +419,52 @@ export default {
   display: flex; justify-content: center; align-items: center;
   z-index: 1050;
 }
+
 .modal-content {
   background: white; border-radius: 8px; width: 90%; max-width: 1000px;
   max-height: 90vh; box-shadow: 0 5px 15px rgba(0,0,0,.5);
   display: flex; flex-direction: column;
 }
+
 .modal-header, .modal-footer {
   padding: 1rem; flex-shrink: 0;
 }
+
 .modal-body {
   padding: 1rem; overflow-y: auto; flex-grow: 1;
 }
+
 .modal-header { 
   border-bottom: 1px solid #dee2e6; display: flex; 
   justify-content: space-between; align-items: center; 
 }
+
 .modal-footer { 
   border-top: 1px solid #dee2e6; display: flex; 
   justify-content: flex-end; gap: 0.5rem; 
 }
+
+.geojson-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.geojson-btn {
+  height: 38px; 
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  font-weight: 400;
+}
+
+.geojson-btn i {
+  font-size: 1rem;
+}
+
 .img-thumbnail {
   padding: 0.25rem;
   background-color: #fff;

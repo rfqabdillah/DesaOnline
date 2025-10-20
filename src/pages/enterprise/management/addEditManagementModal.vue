@@ -11,7 +11,7 @@
           <form @submit.prevent="submitForm">
             <div class="mb-3">
               <label class="form-label">Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isUsahaListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isUsahaListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isUsahaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -66,7 +66,7 @@
 </template>
 
 <script>
-import { addManagement, updateManagement } from '@/services/general/enterprise/management'; 
+import { addManagement, updateManagement } from '@/services/general/enterprise/management';
 import { getProfileEnterprises } from '@/services/general/enterprise/profileEnterprise';
 import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
@@ -90,13 +90,18 @@ export default {
       skFileName: '',
       desaList: [],
       usahaList: [],
-      isUsahaListLoading: false,
+      isListLoading: false, 
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
     isEditMode() {
       return !!this.managementToEdit;
     },
@@ -109,14 +114,17 @@ export default {
   },
   watch: {
     managementToEdit: {
-      handler(newData) {
+      async handler(newData) {
         if (newData) {
+          if (this.usahaList.length === 0) {
+            await this.fetchAllData();
+          }
           this.formData.iddesa = newData.usaha?.iddesa;
           this.formData.idusaha = newData.idusaha;
           this.formData.tanggal_sk = newData.tanggal_sk;
           this.formData.filesk = newData.filesk;
         } else {
-          this.formData = { ...initialFormData };
+          this.resetForm();
         }
         this.selectedSkFile = null;
         this.skFileName = '';
@@ -126,44 +134,78 @@ export default {
       deep: true,
     },
     'formData.iddesa'(newValue, oldValue) {
-      if (newValue !== oldValue) {
+      if (newValue !== oldValue && !this.isEditMode) {
         this.formData.idusaha = '';
       }
     }
   },
   created() {
-    this.fetchDesaList();
-    this.fetchUsahaList();
+    this.initializeComponent();
   },
   methods: {
+    async initializeComponent() {
+      this.loadUserData(); 
+      this.resetForm();    
+      await this.fetchAllData(); 
+    },
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
+    resetForm() {
+      this.formData = { ...initialFormData };
+      if (!this.isSuperadmin && this.userIdDesa) {
+        this.formData.iddesa = this.userIdDesa;
+      }
+    },
+    async fetchAllData() {
+      this.isListLoading = true;
+      try {
+        await Promise.all([
+          this.fetchDesaList(),
+          this.fetchUsahaList()
+        ]);
+      } catch (error) {
+      } finally {
+        this.isListLoading = false;
+      }
+    },
+    async fetchDesaList() {
+      try {
+        const response = await getProfiles({ limit: -1 });
+        this.desaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar desa");
+        throw error; 
+      }
+    },
+    async fetchUsahaList() {
+      try {
+        const response = await getProfileEnterprises({ limit: -1 });
+        this.usahaList = response.data?.data || response.data?.[0]?.data || [];
+      } catch (error) {
+        this.toast.error("Gagal memuat daftar usaha");
+        throw error; 
+      }
+    },
     closeModal() {
       this.$emit('close');
     },
     handleOverlayClick(e) {
       if (e.target === e.currentTarget)
         this.closeModal();
-    },
-    async fetchDesaList() {
-      this.isUsahaListLoading = true;
-      try {
-        const response = await getProfiles({ limit: -1 });
-        this.desaList = response.data?.data || response.data?.[0]?.data || [];
-      } catch (error) {
-        this.toast.error("Gagal memuat daftar desa");
-      } finally {
-        this.isUsahaListLoading = false;
-      }
-    },
-    async fetchUsahaList() {
-      this.isUsahaListLoading = true;
-      try {
-        const response = await getProfileEnterprises({ limit: -1 });
-        this.usahaList = response.data?.data || response.data?.[0]?.data || [];
-      } catch (error) {
-        this.toast.error("Gagal memuat daftar usaha");
-      } finally {
-        this.isUsahaListLoading = false;
-      }
     },
     handleFileUpload(event) {
       const file = event.target.files[0];
@@ -188,7 +230,6 @@ export default {
       }
       try {
         let response;
-
         if (this.isEditMode) {
             data.append('_method', 'PUT');
             response = await updateManagement(this.managementToEdit.idpengurus, data);

@@ -143,5 +143,4 @@ export default {
   display: flex; justify-content: flex-end; gap: 0.5rem;
   border-top: 1px solid #dee2e6;
 }
-.btn-close { border: none; background: transparent; font-size: 1.5rem; }
 </style>

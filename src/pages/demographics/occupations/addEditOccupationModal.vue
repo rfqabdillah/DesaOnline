@@ -92,7 +92,6 @@ export default {
     },
     async submitForm() {
       this.errorMessage = null;
-      // DIUBAH: Menggunakan this.formData
       const { namapekerjaan } = this.formData;
       if ( !namapekerjaan ) {
         this.errorMessage = 'Semua field wajib diisi.';
@@ -101,11 +100,9 @@ export default {
       this.isLoading = true;
       try {
         if (this.isEditMode) {
-          // DIUBAH: Menggunakan this.formData
           await updateOccupation(this.occupationToEdit.idpekerjaan, this.formData);
           this.toast.success("Data pekerjaan berhasil diperbarui", { icon: 'fa fa-check' });
         } else {
-          // DIUBAH: Menggunakan this.formData
           await addOccupation(this.formData);
           this.toast.success("Data pekerjaan berhasil ditambah", { icon: 'fa fa-check' });
         }
@@ -143,5 +140,4 @@ export default {
   display: flex; justify-content: flex-end; gap: 0.5rem;
   border-top: 1px solid #dee2e6;
 }
-.btn-close { border: none; background: transparent; font-size: 1.5rem; }
 </style>

@@ -20,31 +20,14 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button class="btn btn-success" @click="openAddModal" v-if="isSuperAdmin">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
           </div>
         </div>
-
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
-          <div class="row g-2">
-            <div class="col-md-4">
-              <label for="filterName" class="form-label">Nama Jabatan</label>
-              <input type="text" id="filterName" class="form-control" v-model="filters.namajabatan" placeholder="Filter berdasarkan nama jabatan">
-            </div>
           </div>
-          <div class="d-flex justify-content-end gap-2 mt-3">
-            <button class="btn btn-secondary" @click="resetFilters">
-              <i class="fa fa-refresh me-2"></i>
-              <span>Reset Filter</span>
-            </button>
-            <button class="btn btn-primary" @click="applyFilters">
-                <i class="fa fa-search me-2"></i>
-                <span>Terapkan Filter</span>
-            </button>
-          </div>
-        </div>
       </div>
 
       <div class="table-responsive signal-table">
@@ -58,67 +41,32 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namajabatan' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th scope="col" v-if="isSuperAdmin">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(item, index) in paginatedPositions" :key="item.idjabatan">
               <th scope="row">{{ (currentPage - 1) * perPage + index + 1 }}</th>
               <td>{{ item.namajabatan }}</td>
-              <td>
+              <td v-if="isSuperAdmin">
                 <div class="btn-group">
                   <button class="btn btn-primary btn-sm" @click="openEditModal(item)">
                     <i class="fa fa-pencil"></i>
                   </button>
-                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idjabatan)">
+                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)">
                     <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="paginatedPositions.length === 0">
-              <td colspan="5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              <td :colspan="isSuperAdmin ? 3 : 2" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
             </tr>
           </tbody>
         </table>
-
+        
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center mt-3 px-3 pb-3">
-          <div class="mt-2">
-            <span v-if="totalItems > 0" class="text-muted">
-              Menampilkan <strong>{{ (currentPage - 1) * perPage + 1 }}</strong> - <strong>{{ Math.min(currentPage * perPage, totalItems) }}</strong> dari <strong>{{ totalItems }}</strong> data
-            </span>
           </div>
-          <nav v-if="perPage !== -1 && totalPages > 1" class="d-flex align-items-center flex-wrap gap-2 mt-2">
-            <ul class="pagination mb-0">
-              <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                <button class="page-link" @click="changePage(currentPage - 1)">Prev</button>
-              </li>
-              <li class="page-item" v-if="pageNumbers[0] > 1">
-                <button class="page-link" @click="changePage(1)">1</button>
-              </li>
-              <li class="page-item disabled" v-if="pageNumbers[0] > 2">
-                <span class="page-link">...</span>
-              </li>
-              <li
-                v-for="page in pageNumbers"
-                :key="page"
-                class="page-item"
-                :class="{ active: currentPage === page }"
-              >
-                <button class="page-link" @click="changePage(page)">{{ page }}</button>
-              </li>
-              <li class="page-item disabled" v-if="pageNumbers.slice(-1)[0] < totalPages - 1">
-                <span class="page-link">...</span>
-              </li>
-              <li class="page-item" v-if="pageNumbers.slice(-1)[0] < totalPages">
-                <button class="page-link" @click="changePage(totalPages)">{{ totalPages }}</button>
-              </li>
-              <li class="page-item" :class="{ disabled: currentPage === totalPages }">
-                <button class="page-link" @click="changePage(currentPage + 1)">Next</button>
-              </li>
-            </ul>
-          </nav>
-        </div>
       </div>
     </div>
   </div>
@@ -134,7 +82,7 @@ export default {
   data() {
     return {
       positions: [],
-      sortColumn: '',
+      sortColumn: 'namajabatan',
       sortDirection: 'asc',
       isModalVisible: false,
       currentPage: 1,
@@ -144,11 +92,15 @@ export default {
       jumpPage: 1,
       isFilterVisible: false,
       filters: {
-        position_name: '',
+        namajabatan: '',
       },
+      userRole: null, 
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
     paginatedPositions() {
       return this.positions;
     },
@@ -185,9 +137,24 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserRole(); 
     await this.fetchPositions();
   },
   methods: {
+    loadUserRole() {
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          if (userData && userData.data && userData.data[0] && userData.data[0].role) {
+            this.userRole = userData.data[0].role.nama_level;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+        }
+      }
+    },
     openAddModal() {
       this.positionBeingEdited = null;
       this.isModalVisible = true;
@@ -241,9 +208,9 @@ export default {
         });
       }
     },
-    advancedDeleteAlert(id) {
+    advancedDeleteAlert(item) {
       this.$swal({
-        title: 'Hapus Data Jabatan',
+        title: `Hapus Jabatan "${item.namajabatan}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -255,7 +222,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deletePosition(id);
+            await deletePosition(item.idjabatan);
             if (this.positions.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
@@ -292,7 +259,7 @@ export default {
     resetFilters() {
       this.filters.namajabatan = '';
       
-      this.sortColumn = '';
+      this.sortColumn = 'namajabatan';
       this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchPositions();

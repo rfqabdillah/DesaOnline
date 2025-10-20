@@ -3,6 +3,7 @@
     <add-edit-land-modal
       v-if="isLandModalVisible"
       :land-to-edit="landBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeLandModal"
       @save-successful="handleLandSaveSuccessful"
     />
@@ -61,7 +62,7 @@
                   <label class="form-label">Nama Aset</label>
                   <input type="text" class="form-control" v-model="filters.namaaset" @keyup.enter="applyFilters" placeholder="Filter berdasarkan nama aset"/>
                 </div>
-                <div class="col-12">
+                <div v-if="isSuperadmin" class="col-12">
                   <label class="form-label">Nama Desa</label>
                   <select class="form-select" v-model="filters.iddesa">
                     <option value="">Semua Desa</option>
@@ -72,8 +73,14 @@
                 </div>
               </div>
               <div class="d-flex justify-content-end gap-2 mt-3">
-                <button class="btn btn-sm btn-secondary" @click="resetFilters">Reset</button>
-                <button class="btn btn-sm btn-primary" @click="applyFilters">Cari</button>
+                <button class="btn btn-sm btn-secondary" @click="resetFilters">
+                  <i class="fa fa-refresh me-2"></i>
+                <span>Reset Filter</span>
+              </button>
+                <button class="btn btn-sm btn-primary" @click="applyFilters">
+                  <i class="fa fa-search me-2"></i>
+                  <span>Terapkan Filter</span>
+                </button>
               </div>
             </div>
 
@@ -244,11 +251,22 @@ export default {
       loading: { building: {}, room: {} },
       subData: { building: {}, room: {} },
       isFilterVisible: false,
-      filters: { namaaset: "", iddesa: "" },
+      filters: { 
+        namaaset: "", 
+        iddesa: "" 
+      },
       toast: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -267,15 +285,37 @@ export default {
     },
   },
   watch: {
-    currentPage() { this.fetchLands(); },
-    perPage() { this.currentPage = 1; this.fetchLands(); },
+    currentPage() { 
+      this.fetchLands(); 
+    },
+    perPage() { 
+      this.currentPage = 1; this.fetchLands(); 
+    },
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchDesaList();
     await this.fetchLands();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
@@ -297,17 +337,27 @@ export default {
       this.isLoading = true;
       this.selectedLand = null;
       try {
-        const filterParts = Object.entries(this.filters).filter(([, value]) => value).map(([key, value]) => `${key}=${value}`);
+        const filterParts = Object.entries(this.filters)
+          .filter(([, value]) => value)
+          .map(([key, value]) => `${key}=${value}`);
+
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         const params = {
-          page: this.currentPage, limit: this.perPage,
+          page: this.currentPage, 
+          limit: this.perPage,
           order: this.sortColumn ? `${this.sortColumn} ${this.sortDirection}` : "",
-          filter: filterParts.join(','),
+          filter: filterParts.join(','), 
         };
+        
         const response = await getLands(params);
         const data = response.data?.data || response.data?.[0]?.data || [];
         const meta = response.data?.[0]?.meta?.pagination || {};
         this.landList = data;
         this.totalItems = meta.total || data.length;
+
       } catch (error) {
         this.toast.error("Gagal memuat data tanah");
       } finally {
@@ -374,7 +424,7 @@ export default {
     },
     advancedDeleteLandAlert(land) {
       this.$swal({
-        title: `Hapus Aset ${land.namaaset}?`,
+        title: `Hapus Aset "${land.namaaset}"?`,
         text: "Semua data Bangunan dan Ruangan yang terkait juga akan terhapus. Aksi ini tidak dapat dibatalkan.",
         icon: 'warning',
         showCancelButton: true,
@@ -423,7 +473,7 @@ export default {
     },
     advancedDeleteBuildingAlert(building, land) {
       this.$swal({
-        title: `Hapus Bangunan ${building.namagedung}?`,
+        title: `Hapus Bangunan "${building.namagedung}"?`,
         text: "Semua data Ruangan yang terkait juga akan terhapus. Aksi ini tidak dapat dibatalkan.",
         icon: 'warning',
         showCancelButton: true,
@@ -472,7 +522,7 @@ export default {
     },
     advancedDeleteRoomAlert(room, building) {
       this.$swal({
-        title: `Hapus Ruangan ${room.namaruangan}?`,
+        title: `Hapus Ruangan "${room.namaruangan}?""`,
         text: "Aksi ini tidak dapat dibatalkan.",
         icon: 'warning',
         showCancelButton: true,

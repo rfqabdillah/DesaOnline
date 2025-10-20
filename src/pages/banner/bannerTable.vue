@@ -4,6 +4,7 @@
     <add-edit-banner-modal
       v-if="isModalVisible"
       :banner-to-edit="bannerBeingEdited"
+      :user-id-desa="isSuperAdmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -15,8 +16,8 @@
           <h5 class="image-modal-title">Pratinjau Gambar</h5>
           <button type="button" class="btn-close" @click="closeImageModal" aria-label="Close"></button>
         </div>
+        <!-- The draggable image -->
         <div class="image-modal-body">
-          <!-- The draggable image -->
           <img 
             :src="selectedImageUrl" 
             :style="imageStyle" 
@@ -52,7 +53,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -66,7 +67,7 @@
               <label for="filterBannerName" class="form-label">Nama Banner</label>
               <input type="text" id="filterBannerName" class="form-control" v-model="filters.namabanner" placeholder="Filter berdasarkan nama banner">
               </div>
-              <div class="col-md-4">
+              <div v-if="isSuperAdmin" class="col-md-4">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
               </div>
@@ -96,14 +97,17 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namabanner' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col" style="width: 200px;">Gambar</th>
+              <th scope="col" style="width: 200px;">
+                Gambar <br>
+                <small class="text-muted" >*Klik gambar untuk memperbesar</small>
+              </th>
               <th scope="col" @click="sortBy('namawilayah')">
                 Nama Desa
                 <i class="fa fa-sort-asc" v-if="sortColumn === 'namawilayah' && sortDirection === 'asc'"></i>
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -130,12 +134,12 @@
                   <span v-else class="text-muted">-</span>
                 </td>
                 <td>{{ item.wilayah.namawilayah || '-' }}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idbanner)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -147,6 +151,7 @@
             </template> 
           </tbody>
         </table>
+        
 
         <!-- Pagination -->
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center mt-3 px-3 pb-3">
@@ -203,9 +208,17 @@ export default {
       startY: 0,
       translateX: 0,
       translateY: 0,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedBanner() {
       return this.banner;
     },
@@ -248,9 +261,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchBanner();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.bannerBeingEdited = null;
       this.isModalVisible = true;
@@ -340,6 +371,10 @@ export default {
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
+
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
         
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
@@ -361,9 +396,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Banner',
+        title: `Hapus Banner "${item.namabanner}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -375,7 +410,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteBanner(id); 
+            await deleteBanner(item.idbanner); 
             if (this.banner.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

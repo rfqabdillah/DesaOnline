@@ -7,7 +7,6 @@
           <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
         </div>
 
-        <!-- Form -->
         <div class="modal-body">
           <form @submit.prevent="submitForm">
             <div class="mb-3">
@@ -19,9 +18,10 @@
                   :value="selectedRegionName"
                   placeholder="Pilih wilayah dengan menekan tombol 'Cari'"
                   readonly
+                  :disabled="!isSuperadmin" 
                   required
                 />
-                <button type="button" class="btn btn-primary" @click="openRegionSelector">
+                <button v-if="isSuperadmin" type="button" class="btn btn-primary" @click="openRegionSelector">
                   <i class="fa fa-search"></i> Cari
                 </button>
               </div>
@@ -67,11 +67,41 @@
               </div>
             </div>
 
-            <div class="mb-3" v-for="(field, key) in textareaFields" :key="key">
-              <label :for="key" class="form-label">{{ field.label }}</label>
-              <textarea class="form-control" :id="key" :rows="field.rows" v-model="formData[key]"></textarea>
+            <div class="mb-3">
+              <label class="form-label">Data GeoJSON</label>
+              <div class="geojson-wrapper">
+                <textarea
+                  class="form-control flex-grow-1"
+                  v-model="formData.geojson"
+                  rows="3"
+                  placeholder="Data koordinat akan muncul di sini"
+                  aria-label="Data GeoJSON"
+                  disabled
+                ></textarea>
+                <button
+                  class="btn btn-primary geojson-btn"
+                  type="button"
+                  @click="openMapDrawer"
+                >
+                  <i class="fa fa-map me-2"></i>
+                  Edit Koordinat / Digitasi
+                </button>
+              </div>
             </div>
 
+            <div class="mb-3" v-for="(field, key) in textareaFields" :key="key">
+              <label :for="key" class="form-label">{{ field.label }}</label>
+              <div class="quill-editor-container">
+                <QuillEditor
+                  :id="key"
+                  theme="snow"
+                  toolbar="essential"
+                  v-model:content="formData[key]"
+                  contentType="html"
+                  :placeholder="`Masukkan ${field.label}`"
+                />
+              </div>
+            </div>
             <div v-if="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
           </form>
         </div>
@@ -86,7 +116,6 @@
       </div>
     </div>
 
-    <!-- Panggil Modal FilterRegion -->
     <div v-if="isRegionSelectorVisible" class="modal-overlay-selector">
       <div class="modal-content-selector">
         <div class="modal-header">
@@ -98,20 +127,27 @@
         </div>
       </div>
     </div>
+    <map-drawer-modal
+      v-if="showMapDrawer"
+      :initialGeoJSON="formData.geojson"
+      @close="closeMapDrawer"
+      @save="handleMapSave"
+    />
   </div>
 </template>
 
 <script>
 import FilterRegions from './filterRegions.vue';
-import { addProfile, updateProfile } from '@/services/general/villageInformation/profile';
-import { getDetailRegion } from '@/services/referensi/regions';
+import { addProfile, updateProfile, getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
+import { QuillEditor } from '@vueup/vue-quill';
+import MapDrawerModal from '@/components/form/mapDrawerModal.vue';
 
 const initialFormData = {
   idwilayah: '', 
-  logo: '',
+  logo: '', 
   foto: '', 
-  alamatkantor: '', 
+  alamatkantor: '',
   koordinat: '', 
   email: '', 
   website: '', 
@@ -126,93 +162,147 @@ const initialFormData = {
 
 export default {
   name: 'addEditProfilDesaModal',
-  components: { FilterRegions },
+  components: { FilterRegions, QuillEditor, MapDrawerModal },
   props: {
     profileToEdit: { type: Object, default: null }
   },
   data() {
     return {
       formData: { ...initialFormData },
-      selectedLogoFile: null, 
-      selectedFotoFile: null, 
-      logoPreview: null,      
-      fotoPreview: null,      
-      isLoading: false,
-      errorMessage: null,
+      selectedLogoFile: null, selectedFotoFile: null, logoPreview: null, fotoPreview: null, isLoading: false, errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null, 
       isRegionSelectorVisible: false,
       selectedRegionName: '',
       textareaFields: {
-        sambutankepaladesa: { label: 'Sambutan Kepala Desa', rows: 3 },
-        sejarah: { label: 'Sejarah Desa', rows: 4 },
-        visimisi: { label: 'Visi & Misi', rows: 4 },
-        profildesa: { label: 'Profil Umum Desa', rows: 3 },
-        profilmasyarakat: { label: 'Profil Masyarakat', rows: 3 },
-        profilpotensi: { label: 'Profil Potensi Desa', rows: 3 },
+        sambutankepaladesa: { label: 'Sambutan Kepala Desa' },
+        sejarah: { label: 'Sejarah Desa' },
+        visimisi: { label: 'Visi & Misi' },
+        profildesa: { label: 'Profil Umum Desa' },
+        profilmasyarakat: { label: 'Profil Masyarakat' },
+        profilpotensi: { label: 'Profil Potensi Desa' },
       },
+      showMapDrawer: false,
     };
   },
   computed: {
     isEditMode() {
       return !!this.profileToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     profileToEdit: {
       handler(newData) {
         if (newData) {
-          this.formData = { ...initialFormData, ...newData };
-          this.logoPreview = newData.logo || null; 
-          this.fotoPreview = newData.foto || null;
-          this.selectedLogoFile = null;
-          this.selectedFotoFile = null;
-
-          if (this.formData.idwilayah) {
-            this.fetchRegionNameById(this.formData.idwilayah);
-          }
-        } else {
-          this.formData = { ...initialFormData };
-          this.selectedRegionName = '';
-          this.selectedLogoFile = null;
-          this.selectedFotoFile = null;
-          this.logoPreview = null;
-          this.fotoPreview = null;
+          this.populateFormWithData(newData);
         }
-        this.errorMessage = null;
       },
       immediate: true,
       deep: true,
     }
   },
+  created() {
+    this.initializeComponent();
+  },
   methods: {
+    async initializeComponent() {
+      this.loadUserData();
+      
+      if (this.isEditMode) {
+
+      } else { 
+        this.resetForm();
+        if (!this.isSuperadmin) {
+          await this.prefillOperatorData();
+        }
+      }
+    },
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userProfile = JSON.parse(userDataString)?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+      }
+    },
+    async prefillOperatorData() {
+        if (!this.userIdDesa) return;
+        this.isLoading = true;
+        try {
+            const response = await getProfiles({ filter: `iddesa=${this.userIdDesa}`});
+            const operatorProfile = response.data?.data?.[0] || response.data?.[0]?.data?.[0];
+
+            if (operatorProfile) {
+                this.populateFormWithData(operatorProfile);
+            } else {
+                this.toast.warn("Profil desa untuk operator tidak ditemukan.");
+            }
+        } catch (error) {
+            this.toast.error("Gagal memuat data profil desa untuk operator.");
+        } finally {
+            this.isLoading = false;
+        }
+    },
+    populateFormWithData(data) {
+        this.formData = { ...initialFormData, ...data };
+        this.logoPreview = data.logo || null;
+        this.fotoPreview = data.foto || null;
+        if (data.wilayah?.namawilayah) {
+            this.selectedRegionName = data.wilayah.namawilayah;
+        } else if(data.idwilayah) {
+            this.selectedRegionName = `Wilayah ID: ${data.idwilayah}`;
+        }
+    },
+    resetForm() {
+        this.formData = { ...initialFormData };
+        this.selectedRegionName = '';
+        this.selectedLogoFile = null;
+        this.selectedFotoFile = null;
+        this.logoPreview = null;
+        this.fotoPreview = null;
+        this.errorMessage = null;
+    },
     closeModal() { 
       this.$emit('close'); 
     },
     handleOverlayClick(e) { 
       if (e.target === e.currentTarget) 
-      this.closeModal(); 
+        this.closeModal(); 
+    },
+    openMapDrawer() {
+      this.showMapDrawer = true;
+    },
+    closeMapDrawer() {
+      this.showMapDrawer = false;
+    },
+    handleMapSave(newGeoJSON) {
+      this.formData.geojson = newGeoJSON;
+      this.closeMapDrawer(); 
     },
     openRegionSelector() { 
       this.isRegionSelectorVisible = true; 
     },
-    closeRegionSelector() {
+    closeRegionSelector() { 
       this.isRegionSelectorVisible = false; 
     },
-
     handleRegionSelection(region) {
-      this.formData.idwilayah = region.id;       
+      this.formData.idwilayah = region.id;      
       this.selectedRegionName = region.name;    
       this.closeRegionSelector();
     },
-
     handleFileUpload(event, fieldName) {
       const file = event.target.files[0];
-      if (!file) {
-        console.log('Tidak ada file yang dipilih');
-        return;
-      }
-
-      // console.log('File yang dipilih:', file); 
+      if (!file) return;
 
       if (fieldName === 'logo') {
         this.selectedLogoFile = file;
@@ -222,64 +312,28 @@ export default {
         this.fotoPreview = URL.createObjectURL(file);
       }
     },
-
-    async fetchRegionNameById(idwilayah) {
-      if (!idwilayah) {
-        this.selectedRegionName = 'Wilayah tidak ditemukan';
-        return;
-      }
-      try {
-        const response = await getDetailRegion(idwilayah);
-        const regionData = response.data?.[0]?.data?.[0] || null;
-
-        if (regionData && regionData.region_name) {
-          this.selectedRegionName = regionData.region_name;
-        } else {
-          this.selectedRegionName = 'Nama wilayah tidak ditemukan';
-          // console.warn('Properti "region_name" tidak ditemukan pada objek:', regionData);
-        }
-
-      } catch (error) {
-        // console.error("Gagal mengambil nama wilayah:", error);
-        this.selectedRegionName = 'Gagal memuat nama wilayah';
-      }
-    },
-
     async submitForm() {
-      this.errorMessage = null;
-      if (!this.formData.idwilayah || !this.formData.alamatkantor) {
-          this.errorMessage = 'Nama Desa (Wilayah) dan Alamat Kantor wajib diisi.';
+      if (!this.formData.idwilayah) {
+          this.errorMessage = 'Nama Desa (Wilayah) wajib diisi.';
           return;
       }
       this.isLoading = true;
       this.errorMessage = null;
       const data = new FormData();
       
-      data.append('act', 'profil-desa');
-      if (this.selectedLogoFile) {
-        data.append('upload_logo', this.selectedLogoFile);
-      } else if (this.formData.logo) {
-          data.append('record[logo]', this.formData.logo);
-      }
-      
-      if (this.selectedFotoFile) {
-          data.append('upload_foto', this.selectedFotoFile);
-      } else if (this.formData.foto) {
-          data.append('record[foto]', this.formData.foto);
-      }
-
-      const dataToSend = { ...this.formData };
-      delete dataToSend.logo;
-      delete dataToSend.foto;
-      delete dataToSend.wilayah; 
-
-      Object.keys(dataToSend).forEach(key => {
-          const value = dataToSend[key];
-          if (value !== null && value !== undefined && value !== '') {
-              data.append(`record[${key}]`, value);
+      Object.keys(this.formData).forEach(key => {
+          if (this.formData[key] && key !== 'logo' && key !== 'foto' && key !== 'wilayah') {
+            data.append(`record[${key}]`, this.formData[key]);
           }
       });
 
+      if (this.selectedLogoFile) { 
+        data.append('upload_logo', this.selectedLogoFile); 
+      }
+      if (this.selectedFotoFile) { 
+        data.append('upload_foto', this.selectedFotoFile); 
+      }
+      
       try {
           if (this.isEditMode) {
               data.append('_method', 'PUT');
@@ -292,9 +346,8 @@ export default {
           this.$emit('save-successful');
           this.closeModal();
       } catch (error) {
-          this.errorMessage = error.response?.data?.failed || error.response?.data?.message || 'Gagal menyimpan data. Silakan coba lagi.';
+          this.errorMessage = error.response?.data?.failed || error.response?.data?.message || 'Gagal menyimpan data.';
           this.toast.error("Gagal menyimpan data profil desa.");
-
       } finally {
           this.isLoading = false;
       }
@@ -332,5 +385,49 @@ export default {
   max-width: 200px; max-height: 150px; border-radius: 6px; 
   border: 1px solid #ddd; object-fit: cover; 
 }
-.text-danger { color: #dc3545 !important; }
+.text-danger { 
+color: #dc3545 !important; 
+}
+.geojson-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.geojson-btn {
+  height: 38px; 
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  font-weight: 400;
+}
+.geojson-btn i {
+  font-size: 1rem;
+}
+.quill-editor-container {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.quill-editor-container:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border: none !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border: none !important;
+}
+:deep(.ql-editor) {
+  min-height: 150px; 
+  padding: 0.5rem 1rem;
+}
 </style>

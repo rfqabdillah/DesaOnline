@@ -45,7 +45,7 @@
 
           <div class="detail-section">
             <h4>Isi Pengumuman</h4>
-            <p class="text-content">{{ profile.konten || 'Tidak ada konten untuk ditampilkan.' }}</p>
+            <div class="text-content" v-html="profile.konten || 'Tidak ada konten untuk ditampilkan.'"></div>
           </div>
         </div>
       </div>

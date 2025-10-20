@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class.modal-overlay @click="closeModal">
+    <div class="modal-overlay" @click="closeModal">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
           <h5 class="modal-title">Detail Surat Keluar</h5>

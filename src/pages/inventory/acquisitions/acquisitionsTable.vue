@@ -20,7 +20,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="isSuperAdmin" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -31,7 +31,7 @@
           <div class="row g-2">
             <div class="col-md-4">
               <label for="filterName" class="form-label">Nama Perolehan</label>
-              <input type="text" id="filterName" class="form-control" v-model="filters.namaperolehan" placeholder="Filter berdasarkan nam perolehan">
+              <input type="text" id="filterName" class="form-control" v-model="filters.namaperolehan" placeholder="Filter berdasarkan nama perolehan">
             </div>
           </div>
           <div class="d-flex justify-content-end gap-2 mt-3">
@@ -58,26 +58,26 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namaperolehan' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="isSuperAdmin" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(item, index) in paginatedAcquisitions" :key="item.idperolehan">
               <th scope="row">{{ (currentPage - 1) * perPage + index + 1 }}</th>
               <td>{{ item.namaperolehan }}</td>
-              <td>
+              <td v-if="isSuperAdmin">
                 <div class="btn-group">
                   <button class="btn btn-primary btn-sm" @click="openEditModal(item)">
                     <i class="fa fa-pencil"></i>
                   </button>
-                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idperolehan)">
+                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)">
                     <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="paginatedAcquisitions.length === 0">
-              <td colspan="5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              <td :colspan="isSuperAdmin ? 3 : 2" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
             </tr>
           </tbody>
         </table>
@@ -134,7 +134,7 @@ export default {
   data() {
     return {
       acquisitions: [],
-      sortColumn: '',
+      sortColumn: 'namaperolehan',
       sortDirection: 'asc',
       isModalVisible: false,
       currentPage: 1,
@@ -144,11 +144,15 @@ export default {
       jumpPage: 1,
       isFilterVisible: false,
       filters: {
-        acquisition_name: '',
+        namaperolehan: '',
       },
+      userRole: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
     paginatedAcquisitions() {
       return this.acquisitions;
     },
@@ -185,9 +189,24 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserRole();
     await this.fetchAcquisitions();
   },
   methods: {
+    loadUserRole() {
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          if (userData && userData.data && userData.data[0] && userData.data[0].role) {
+            this.userRole = userData.data[0].role.nama_level;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+        }
+      }
+    },
     openAddModal() {
       this.acquisitionBeingEdited = null;
       this.isModalVisible = true;
@@ -241,9 +260,9 @@ export default {
         });
       }
     },
-    advancedDeleteAlert(id) {
+    advancedDeleteAlert(item) {
       this.$swal({
-        title: 'Hapus Data Perolehan',
+        title: `Hapus "${item.namaperolehan}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -255,7 +274,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteAcquisition(id);
+            await deleteAcquisition(item.idperolehan);
             if (this.acquisitions.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
@@ -292,7 +311,7 @@ export default {
     resetFilters() {
       this.filters.namaperolehan = '';
       
-      this.sortColumn = '';
+      this.sortColumn = 'namaperolehan';
       this.sortDirection = 'asc';
       this.currentPage = 1;
       this.fetchAcquisitions();

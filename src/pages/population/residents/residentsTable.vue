@@ -4,6 +4,7 @@
     <add-edit-resident-modal
       v-if="isModalVisible"
       :resident-to-edit="residentBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -26,7 +27,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -35,15 +36,15 @@
 
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
           <div class="row g-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="filterNik" class="form-label">NIK</label>
               <input type="text" id="filterNik" class="form-control" v-model="filters.nik" placeholder="Filter berdasarkan NIK...">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="filterName" class="form-label">Nama Penduduk</label>
               <input type="text" id="filterName" class="form-control" v-model="filters.nama" placeholder="Filter berdasarkan nama penduduk...">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
               <label for="filterGender" class="form-label">Jenis Kelamin</label>
               <select id="filterGender" class="form-select" v-model="filters.idjeniskelamin">
                 <option value="">Semua Jenis Kelamin</option>
@@ -51,6 +52,10 @@
                   {{ gender.namajeniskelamin }}
                 </option>
               </select>
+            </div>
+            <div class="col-md-3" v-if="isSuperadmin">
+              <label for="filterVillageName" class="form-label">Nama Desa</label>
+              <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
           </div>
 
@@ -97,12 +102,12 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="6" class="text-center p-5">
+              <td colspan="7" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Loading...</span>
                 </div>
@@ -117,7 +122,7 @@
                 <td>{{ item.jk.namajeniskelamin || '-'}}</td>
                 <td>{{ [item.tempatlahir, formatTanggal(item.tanggallahir)].filter(Boolean).join(', ') || '-' }}</td>
                 <td>{{ item.wilayah.namawilayah || '-'}}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail Data">
                       <i class="fa fa-eye"></i>
@@ -125,14 +130,14 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idpenduduk)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="paginatedResidents.length === 0">
-                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+                <td colspan="7" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
@@ -183,15 +188,24 @@ export default {
       residentBeingEdited: null,
       isFilterVisible: false,
       filters: {
+        nik: '',
         namapenduduk: '',
-        namakategoripenduduk: '',
+        idjeniskelamin: '',
         namawilayah: '',
       },
       isDetailModalVisible: false,
       residentBeingViewed: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedResidents() {
       return this.residents;
     },
@@ -225,10 +239,28 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData(); 
     await this.fetchResidents();
     await this.fetchGenders();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.residentBeingEdited = null;
       this.isModalVisible = true;
@@ -272,6 +304,10 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
+        if (!this.isSuperadmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         } else {
@@ -300,9 +336,9 @@ export default {
       this.toast.error("Gagal memuat daftar jenis kelamin");
     }
   },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Penduduk',
+        title: `Hapus Penduduk "${item.namapenduduk}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -314,7 +350,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteResident(id); 
+            await deleteResident(item.idpenduduk); 
             if (this.residents.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
@@ -349,11 +385,10 @@ export default {
       this.fetchResidents();
     },
     resetFilters() {
-      this.filters.namawilayah = '';
-      this.filters.tahunawal = '';
-      this.filters.tahunakhir = '';
-      this.filters.tanggal_sk = '';
+      this.filters.namapenduduk = '';
+      this.filters.nik = '';
       this.filters.idjeniskelamin = '';
+      this.filters.namawilayah = '';
       this.sortColumn = 'created_at'; 
       this.sortDirection = 'asc';
       this.currentPage = 1;

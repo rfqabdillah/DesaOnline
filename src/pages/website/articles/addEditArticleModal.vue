@@ -16,12 +16,12 @@
 
             <div class="mb-3">
               <label class="form-label">Judul Artikel</label>
-              <input type="text" class="form-control" v-model="formData.judul" required />
+              <input type="text" class="form-control" v-model="formData.judul" required placeholder="Masukkan judul artikel" />
             </div>
             
             <div class="mb-3">
               <label class="form-label">Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -33,11 +33,11 @@
 
             <div class="mb-3">
               <label class="form-label">Kategori Artikel</label>
-              <select class="form-select" v-model="formData.idkategoriartikel" required :disabled="isListLoading">
+              <select class="form-select" v-model="formData.idkategoriartikel" required :disabled="isListLoading || !formData.iddesa">
                 <option disabled value="">
-                  {{ isListLoading ? 'Memuat...' : 'Pilih Kategori Artikel' }}
+                  {{ isListLoading ? 'Memuat...' : (formData.iddesa ? 'Pilih Kategori Artikel' : 'Pilih Desa terlebih dahulu') }}
                 </option>
-                <option v-for="category in categoryList" :key="category.idkategoriartikel" :value="category.idkategoriartikel">
+                <option v-for="category in filteredCategoryList" :key="category.idkategoriartikel" :value="category.idkategoriartikel">
                   {{ category.namakategoriartikel }}
                 </option>
               </select>
@@ -59,15 +59,17 @@
             
             <div class="mb-3">
               <label class="form-label">Konten</label>
-              <QuillEditor 
-                theme="snow" 
-                toolbar="full" 
-                v-model:content="formData.konten" 
-                contentType="html"
-                placeholder="Tulis konten artikel di sini..."
-                style="min-height: 200px;"
-              />
-            </div>
+              <div class="quill-editor-container">
+                <QuillEditor 
+                  theme="snow" 
+                  toolbar="full" 
+                  v-model:content="formData.konten" 
+                  contentType="html"
+                  placeholder="Tulis konten artikel di sini"
+                  style="min-height: 200px;"
+                />
+              </div>
+              </div>
             
             <div v-if="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
           </form>
@@ -87,7 +89,6 @@
 
 <script>
 import { QuillEditor } from '@vueup/vue-quill';
-import { getDetailUsers } from "@/services/referensi/users";
 import { addArticle, updateArticle } from "@/services/general/website/article"; 
 import { getProfiles } from "@/services/general/villageInformation/profile";
 import { getArticleCategories } from "@/services/general/website/articleCategory";
@@ -114,20 +115,26 @@ export default {
   data() {
     return {
       formData: { ...initialFormData },
-      publisherName: 'Memuat...',
+      publisherName: '',
       selectedFile: null,
       gambarPreviewUrl: null, 
-      categoryList: [],
       desaList: [],
+      allCategoryList: [],      
+      filteredCategoryList: [], 
       isListLoading: false,
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.articleToEdit;
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
     },
     generatedSlug() {
       if (!this.formData.judul) return '';
@@ -151,17 +158,35 @@ export default {
             idpengguna: newData.idpengguna,
             gambar: newData.gambar,
           };
-          this.publisherName = newData.pengguna?.nama || '-';
+          this.publisherName = newData.pengguna?.nama || 'Penerbit Asli';
         } else {
           this.formData = { ...initialFormData };
-          await this.fetchCurrentUser();
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
+          this.loadUserData();
         }
       },
       immediate: true,
       deep: true,
+    },
+    
+    'formData.iddesa'(newIdDesa, oldIdDesa) {
+      if (newIdDesa !== oldIdDesa) {
+        this.formData.idkategoriartikel = '';
+      }
+
+      if (newIdDesa) {
+        this.filteredCategoryList = this.allCategoryList.filter(
+          category => category.desa && category.desa.iddesa === newIdDesa
+        );
+      } else {
+        this.filteredCategoryList = [];
+      }
     }
   },
   async created() {
+    this.loadUserData();
     await this.fetchDesaList();
     await this.fetchCategoryList();
   },
@@ -169,23 +194,30 @@ export default {
     closeModal() { this.$emit('close'); },
     handleOverlayClick(e) { if (e.target === e.currentTarget) this.closeModal(); },
     
-    async fetchCurrentUser() {
-      const userData = JSON.parse(localStorage.getItem('User')) || {};
-      const userId = userData.id_pengguna; 
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (!userDataString) throw new Error("Data pengguna tidak ditemukan di local storage.");
 
-      if (userId) {
-        this.formData.idpengguna = userId;
-        try {
-          const response = await getDetailUsers(userId);
-          const userInfo = response.data?.[0]?.data?.[0];
-          this.publisherName = userInfo?.name || 'Pengguna tidak ditemukan';
-        } catch (error) {
-          console.error('Gagal mengambil nama user:', error);
-          this.toast.error("Gagal memuat nama penerbit.");
-          this.publisherName = 'Nama Gagal Dimuat';
+        const userData = JSON.parse(userDataString);
+        const userProfile = userData?.data?.[0]; 
+        
+        if (userProfile && userProfile.id_pengguna) {
+          this.userRole = userProfile.role?.nama_level;
+          this.userIdDesa = userProfile.id_desa;
+          this.formData.idpengguna = userProfile.id_pengguna;
+          this.publisherName = userProfile.nama || 'Nama Tidak Ditemukan';
+
+          if (!this.isSuperadmin && !this.isEditMode) {
+            this.formData.iddesa = this.userIdDesa;
+          }
+        } else {
+          throw new Error("Struktur data pengguna tidak valid.");
         }
-      } else {
-        this.publisherName = 'Tidak ada sesi login';
+      } catch (error) {
+        console.error('Gagal memuat data pengguna dari local storage:', error);
+        this.toast.error("Gagal memuat data penerbit.");
+        this.publisherName = 'Gagal Dimuat';
         this.formData.idpengguna = '';
       }
     },
@@ -201,11 +233,19 @@ export default {
         this.isListLoading = false;
       }
     },
+
     async fetchCategoryList() {
       this.isListLoading = true;
       try {
         const response = await getArticleCategories({ limit: -1 });
-        this.categoryList = response.data?.data || response.data?.[0]?.data || [];
+        this.allCategoryList = response.data?.data || response.data?.[0]?.data || [];
+
+        // Jika desa terpilih, langsung filter kategori saat data pertama kali dimuat
+        if (this.formData.iddesa) {
+            this.filteredCategoryList = this.allCategoryList.filter(
+                category => category.desa && category.desa.iddesa === this.formData.iddesa
+            );
+        }
       } catch (error) {
         this.toast.error("Gagal memuat daftar kategori artikel");
       } finally {
@@ -249,7 +289,9 @@ export default {
       data.append('record[iddesa]', this.formData.iddesa);
       data.append('record[idpengguna]', this.formData.idpengguna);
 
-      if (this.selectedFile) data.append('upload_gambar', this.selectedFile);
+      if (this.selectedFile) {
+        data.append('upload_gambar', this.selectedFile);
+      }
       
       try {
         let response;
@@ -302,5 +344,30 @@ export default {
 }
 .text-danger { 
   color: #dc3545 !important; 
+}
+
+.quill-editor-container {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.quill-editor-container:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border: none !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border: none !important;
+}
+:deep(.ql-editor) {
+  min-height: 200px; 
+  padding: 0.5rem 1rem;
 }
 </style>

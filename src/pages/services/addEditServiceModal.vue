@@ -15,7 +15,7 @@
             </div>
             <div class="mb-3">
               <label class="form-label">Nama Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isDesaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -27,12 +27,30 @@
             
             <div class="mb-3">
               <label class="form-label">Persyaratan</label>
-              <textarea class="form-control" v-model="formData.persyaratan" placeholder="Masukkan persyaratan layanan" rows="4" required></textarea>
+              <div class="quill-editor-container">
+                <QuillEditor 
+                  theme="snow" 
+                  toolbar="full" 
+                  v-model:content="formData.persyaratan" 
+                  contentType="html"
+                  placeholder="Tulis persyaratan layanan di sini"
+                  style="min-height: 200px;"
+                />
+              </div>
             </div>
 
             <div class="mb-3">
               <label class="form-label">Tahapan</label>
-              <textarea class="form-control" v-model="formData.tahapan" placeholder="Masukkan tahapan layanan" rows="4" required></textarea>
+              <div class="quill-editor-container">
+                <QuillEditor 
+                  theme="snow" 
+                  toolbar="full" 
+                  v-model:content="formData.tahapan" 
+                  contentType="html"
+                  placeholder="Tulis tahapan layanan di sini"
+                  style="min-height: 200px;"
+                />
+              </div>
             </div>
 
             
@@ -56,6 +74,7 @@
 import { addService, updateService } from '@/services/general/services/services'; 
 import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
+import { QuillEditor } from '@vueup/vue-quill';
 
 const initialFormData = {
   iddesa: '',
@@ -66,6 +85,7 @@ const initialFormData = {
 
 export default {
   name: 'addEditServiceModal',
+  components: {QuillEditor,},
   props: {
     serviceToEdit: { type: Object, default: null },
   },
@@ -77,12 +97,17 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.serviceToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     serviceToEdit: {
@@ -94,6 +119,10 @@ export default {
           this.formData.gambar = newData.gambar;
         } else {
           this.formData = { ...initialFormData };
+
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.errorMessage = null;
       },
@@ -102,9 +131,31 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },
@@ -192,5 +243,30 @@ export default {
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
   height: auto;
+}
+
+.quill-editor-container {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.quill-editor-container:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border: none !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border: none !important;
+}
+:deep(.ql-editor) {
+  min-height: 200px; 
+  padding: 0.5rem 1rem;
 }
 </style>

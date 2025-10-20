@@ -12,7 +12,7 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Desa</label>
-                <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
+                <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading || !isSuperadmin">
                   <option disabled value="">
                     {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                   </option>
@@ -70,10 +70,6 @@
             
             <div class="row">
               <div class="col-md-6 mb-3">
-                <label class="form-label">Data GeoJSON</label>
-                <textarea class="form-control" v-model="formData.geojson" rows="2" placeholder="Masukkan data koordinat GeoJSON"></textarea>
-              </div>
-              <div class="col-md-6 mb-3">
                 <label class="form-label">Harga Perolehan (Rp)</label>
                 <input type="number" class="form-control" v-model="formData.hargaperolehan" placeholder="Contoh: 150000000" required />
               </div>
@@ -87,7 +83,7 @@
                   <option v-for="item in StatusHakList" :key="item.idstatushak" :value="item.idstatushak">{{ item.namastatushak }}</option>
                 </select>
               </div>
-               <div class="col-md-6 mb-3">
+              <div class="col-md-6 mb-3">
                 <label class="form-label">Asal Usul Tanah</label>
                 <select class="form-select" v-model="formData.idasalusultanah" required>
                   <option disabled value="">Pilih Asal Usul</option>
@@ -129,6 +125,28 @@
             </div>
 
             <div class="mb-3">
+              <label class="form-label">Data GeoJSON</label>
+              <div class="geojson-wrapper">
+                <textarea
+                  class="form-control flex-grow-1"
+                  v-model="formData.geojson"
+                  rows="3"
+                  placeholder="Data koordinat akan muncul di sini"
+                  aria-label="Data GeoJSON"
+                  disabled
+                ></textarea>
+                <button
+                  class="btn btn-primary geojson-btn"
+                  type="button"
+                  @click="openMapDrawer"
+                >
+                  <i class="fa fa-map me-2"></i>
+                  Edit Koordinat / Digitasi
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-3">
               <label class="form-label">Upload Foto</label>
               <input type="file" class="form-control" accept="image/*" @change="handleFotoUpload" />
               <div class="mt-2">
@@ -154,6 +172,12 @@
         </div>
       </div>
     </div>
+    <map-drawer-modal
+      v-if="showMapDrawer"
+      :initialGeoJSON="formData.geojson"
+      @close="closeMapDrawer"
+      @save="handleMapSave"
+    />
   </div>
 </template>
 
@@ -166,6 +190,8 @@ import { getBudgetSources } from '@/services/referensi/budgetSources';
 import { getLandOrigins } from '@/services/referensi/landOrigins';
 import { getLegalStatuses } from '@/services/referensi/legalStatus';
 import { useToast } from "vue-toastification";
+import MapDrawerModal from '@/components/form/mapDrawerModal.vue';
+
 
 const initialFormData = {
   iddesa: '',
@@ -191,6 +217,9 @@ const initialFormData = {
 
 export default {
   name: 'addEditLandModal', 
+  components: { 
+    MapDrawerModal,
+  },
   props: {
     landToEdit: { type: Object, default: null },
   },
@@ -209,12 +238,18 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null, 
+      showMapDrawer: false,
     };
   },
   computed: {
     isEditMode() {
       return !!this.landToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     landToEdit: {
@@ -241,6 +276,9 @@ export default {
           this.formData.foto = newData.foto;
         } else {
           this.formData = { ...initialFormData };
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.selectedFotoFile = null;
         this.fotoPreviewUrl = null;
@@ -251,6 +289,7 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
     this.fetchStatusHakList(); 
     this.fetchAsalUsulTanahList(); 
@@ -264,8 +303,38 @@ export default {
     }
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
+    },
+    openMapDrawer() {
+      this.showMapDrawer = true;
+    },
+    closeMapDrawer() {
+      this.showMapDrawer = false;
+    },
+    handleMapSave(newGeoJSON) {
+      this.formData.geojson = newGeoJSON;
+      this.closeMapDrawer(); 
     },
     handleOverlayClick(e) {
       if (e.target === e.currentTarget)
@@ -410,25 +479,52 @@ export default {
   display: flex; justify-content: center; align-items: center;
   z-index: 1050;
 }
+
 .modal-content {
   background: white; border-radius: 8px; width: 90%; max-width: 1000px;
   max-height: 90vh; box-shadow: 0 5px 15px rgba(0,0,0,.5);
   display: flex; flex-direction: column;
 }
+
 .modal-header, .modal-footer {
   padding: 1rem; flex-shrink: 0;
 }
+
 .modal-body {
   padding: 1rem; overflow-y: auto; flex-grow: 1;
 }
+
 .modal-header { 
   border-bottom: 1px solid #dee2e6; display: flex; 
   justify-content: space-between; align-items: center; 
 }
+
 .modal-footer { 
   border-top: 1px solid #dee2e6; display: flex; 
   justify-content: flex-end; gap: 0.5rem; 
 }
+
+.geojson-wrapper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.geojson-btn {
+  height: 38px; 
+  white-space: nowrap;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 15px;
+  font-weight: 400;
+}
+
+.geojson-btn i {
+  font-size: 1rem;
+}
+
 .img-thumbnail {
   padding: 0.25rem;
   background-color: #fff;

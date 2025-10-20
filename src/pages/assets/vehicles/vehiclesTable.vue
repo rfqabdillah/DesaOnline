@@ -4,6 +4,7 @@
     <add-edit-vehicle-modal
       v-if="isModalVisible"
       :vehicle-to-edit="vehicleBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -43,7 +44,7 @@
               <label for="filterPoliceNumber" class="form-label">Nomor Polisi</label>
               <input type="text" id="filterPoliceNumber" class="form-control" v-model="filters.nomorpolisi" placeholder="Filter berdasarkan nomor polisi">
             </div>
-            <div class="col-md-3">
+            <div v-if="isSuperadmin" class="col-md-3">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
@@ -99,7 +100,7 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namakondisi' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +119,7 @@
                 <td>{{ item.nomorpolisi || '-' }}</td>
                 <td>{{ item.wilayah?.namawilayah || '-' }}</td>
                 <td>{{ item.kondisi?.namakondisi || '-' }}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail">
                       <i class="fa fa-eye"></i>
@@ -126,14 +127,14 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idkendaraan)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="paginatedVehicles.length === 0">
-                <td colspan="7" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
@@ -192,9 +193,17 @@ export default {
       },
       isDetailModalVisible: false,
       vehicleBeingViewed: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin(){
+      return this.userRole === "Superadmin"
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedVehicles() {
       return this.vehicles;
     },
@@ -228,10 +237,28 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchVehicles();
     await this.fetchConditions(); 
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.vehicleBeingEdited = null;
       this.isModalVisible = true;
@@ -269,6 +296,10 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         params.filter = filterParts.length > 0 ? filterParts.join(',') : '';
         
         const response = await getVehicles(params);
@@ -293,9 +324,9 @@ export default {
         this.toast.error("Gagal memuat daftar kondisi", { icon: 'fa fa-times' });
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Kendaraan',
+        title: `Hapus Kendaraan "${item.namabarang}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -307,7 +338,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteVehicle(id); 
+            await deleteVehicle(item.idkendaraan); 
             if (this.vehicles.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

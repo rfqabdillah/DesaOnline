@@ -147,5 +147,4 @@ export default {
 .text-danger { 
   color: #dc3545 !important; 
 }
-
 </style>

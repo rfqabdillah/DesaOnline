@@ -809,11 +809,15 @@ router.beforeEach((to, from, next) => {
   }
 
   if (to.matched.some(record => record.meta.requiresAuth)) {
-    if (!localStorage.getItem('User')) {
-      return next('/auth');
+    
+    if (!localStorage.getItem('token')) {
+      next('/auth');
+    } else {
+      next();
     }
+  } else {
+    next();
   }
-  next();
 });
 
 export default router;

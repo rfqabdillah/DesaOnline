@@ -20,7 +20,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="isSuperAdmin" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -84,7 +84,7 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'region_type' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col" >Aksi</th>
+              <th v-if="isSuperAdmin" scope="col" >Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -93,19 +93,19 @@
               <td>{{ item.region_code }}</td>
               <td>{{ item.region_name }}</td>
               <td>{{ item.region_type }}</td>
-              <td>
+              <td v-if="isSuperAdmin">
                 <div class="btn-group">
                   <button class="btn btn-primary btn-sm" @click="openEditModal(item)">
                     <i class="fa fa-pencil"></i>
                   </button>
-                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.region_id)">
+                  <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)">
                     <i class="fa fa-trash"></i>
                   </button>
                 </div>
               </td>
             </tr>
             <tr v-if="paginatedRegions.length === 0">
-              <td colspan="5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+              <td :colspan="isSuperAdmin ? 5 : 4" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
             </tr>
           </tbody>
         </table>
@@ -176,9 +176,13 @@ export default {
         region_name: '',
         region_type: '',
       },
+      userRole: null, 
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
     paginatedRegions() {
       return this.regions;
     },
@@ -215,9 +219,24 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserRole();
     await this.fetchRegions();
   },
   methods: {
+    loadUserRole() {
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          if (userData && userData.data && userData.data[0] && userData.data[0].role) {
+            this.userRole = userData.data[0].role.nama_level;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+        }
+      }
+    },
     openAddModal() {
       this.regionBeingEdited = null;
       this.isModalVisible = true;
@@ -271,9 +290,9 @@ export default {
         });
       }
     },
-    advancedDeleteAlert(id) {
+    advancedDeleteAlert(item) {
       this.$swal({
-        title: 'Hapus Data Wilayah',
+        title: `Hapus Wilayah "${item.region_name}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -285,7 +304,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteRegion(id);
+            await deleteRegion(item.region_id);
             if (this.regions.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

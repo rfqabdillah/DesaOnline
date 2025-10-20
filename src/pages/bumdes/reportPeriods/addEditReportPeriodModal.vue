@@ -68,10 +68,8 @@ export default {
     reportPeriodToEdit: {
       handler(newData) {
         if (newData) {
-          // Mode Edit: Salin data ke formData
           this.formData = { ...newData }; 
         } else {
-          // Mode Tambah: Reset formData dengan benar
           this.formData = { 
             namaperiodelaporan: '',
           };

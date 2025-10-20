@@ -60,7 +60,7 @@
 
           <div class="detail-section">
             <h4><i class="fa fa-file-text-o me-2"></i>Isi Konten</h4>
-            <p class="text-content">{{ programDetail.konten || 'Tidak ada konten untuk ditampilkan.' }}</p>
+            <div class="text-content" v-html="programDetail.konten || 'Belum ada konten.'"></div>
           </div>
         </div>
       </div>

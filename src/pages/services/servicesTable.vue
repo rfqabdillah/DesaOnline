@@ -4,6 +4,7 @@
     <add-edit-service-modal
       v-if="isModalVisible"
       :service-to-edit="serviceBeingEdited"
+      :user-id-desa="isSuperAdmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -26,7 +27,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -42,7 +43,7 @@
               <input type="text" id="filterName" class="form-control" v-model="filters.namalayanan" placeholder="Filter berdasarkan nama layanan">
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-3" v-if="isSuperAdmin">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
@@ -78,7 +79,7 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -91,11 +92,11 @@
               </td>
             </tr>
             <template v-else>
-              <tr v-for="(item, index) in paginatedServices" :key="item.idusaha">
+              <tr v-for="(item, index) in paginatedServices" :key="item.idlayanan">
                 <th scope="row">{{ (currentPage - 1) * perPage + index + 1 }}</th>
                 <td>{{ item.namalayanan || '-' }}</td>
                 <td>{{ item.wilayah?.namawilayah || '-' }}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Data">
                       <i class="fa fa-eye"></i>
@@ -103,14 +104,14 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idusaha)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="paginatedServices.length === 0">
-                <td colspan="7" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+                <td colspan="3" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
@@ -166,9 +167,17 @@ export default {
       },
       isDetailModalVisible: false,
       serviceBeingViewed: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedServices() {
       return this.services;
     },
@@ -202,9 +211,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchServices();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.serviceBeingEdited = null;
       this.isModalVisible = true;
@@ -242,6 +269,10 @@ export default {
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
+
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
         
         params.filter = filterParts.length > 0 ? filterParts.join(',') : '';
         
@@ -259,9 +290,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Layanan',
+        title: `Hapus Layanan "${item.namalayanan}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -273,7 +304,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteService(id); 
+            await deleteService(item.idlayanan); 
             if (this.services.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

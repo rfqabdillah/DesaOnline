@@ -4,6 +4,7 @@
     <add-edit-official-modal
       v-if="isModalVisible"
       :official-to-edit="officialBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -20,7 +21,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -29,7 +30,7 @@
 
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
           <div class="row g-3">
-            <div class="col-md-3">
+            <div v-if="isSuperadmin" class="col-md-3">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
@@ -94,7 +95,7 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namastatus' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -114,12 +115,12 @@
                 <td>{{ item.penduduk.namapengurus || '-' }}</td>
                 <td>{{ item.jabatan.namajabatan || '-' }}</td>
                 <td>{{ item.status.namastatus || '-' }}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idperangkat)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -180,9 +181,17 @@ export default {
         namastatus: '',
       },
       statusList: [], 
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedOfficials() {
       return this.officials;
     },
@@ -216,9 +225,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchOfficials();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.officialBeingEdited = null;
       this.isModalVisible = true;
@@ -249,6 +276,10 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
+        if (!this.isSuperadmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         } else {
@@ -274,9 +305,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Perangkat',
+        title: `Hapus Pengurus dengan nama "${item.penduduk.namapengurus}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -288,7 +319,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteOfficial(id); 
+            await deleteOfficial(item.idperangkat); 
             if (this.officials.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

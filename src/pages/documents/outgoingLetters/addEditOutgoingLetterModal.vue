@@ -35,7 +35,7 @@
             <div class="row">
               <div class="col mb-3">
                 <label class="form-label">Desa</label>
-                <select class="form-select" v-model="formData.id_desa" required :disabled="isListLoading">
+                <select class="form-select" v-model="formData.id_desa" required :disabled="isListLoading || !isSuperadmin">
                   <option disabled value="">
                     {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                   </option>
@@ -123,12 +123,17 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.outgoingLetterToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     outgoingLetterToEdit: {
@@ -144,6 +149,11 @@ export default {
           this.formData.file_surat = newData.file_surat;
         } else {
           this.formData = { ...initialFormData };
+
+          // Jika bukan superadmin, set iddesa saat form direset
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.id_desa = this.userIdDesa;
+          }
         }
         this.errorMessage = null;
         this.selectedFile = null;
@@ -154,10 +164,32 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
     this.fetchJenisSuratList();
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.id_desa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },

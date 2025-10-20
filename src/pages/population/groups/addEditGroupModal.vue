@@ -11,13 +11,13 @@
           <form @submit.prevent="submitForm">
             <div class="mb-3">
                 <label class="form-label">Nama Kelompok </label>
-                <input type="text" class="form-control" v-model="formData.namakelompok" required />
+                <input type="text" class="form-control" v-model="formData.namakelompok" required placeholder="Masukkan nama kelompok" />
               </div>
             <div class="mb-3">
               <label class="form-label">Nama Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading || !isSuperadmin">
                 <option disabled value="">
-                  {{ isDesaListLoading ? 'Memuat daftar desa...' : 'Pilih Desa' }}
+                  {{ isDesaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
                 <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
                   {{ desa.wilayah.namawilayah }}
@@ -28,7 +28,7 @@
               <label class="form-label">Kategori Kelompok</label>
               <select class="form-select" v-model="formData.idkategorikelompok" required :disabled="isCategoryListLoading">
                 <option disabled value="">
-                  {{ isCategoryListLoading ? 'Memuat daftar kategori...' : 'Pilih Kategori Kelompok' }}
+                  {{ isCategoryListLoading ? 'Memuat...' : 'Pilih Kategori Kelompok' }}
                 </option>
                 <option v-for="category in categoryList" :key="category.idkategorikelompok" :value="category.idkategorikelompok">
                   {{ category.namakategorikelompok}}
@@ -39,7 +39,7 @@
             <div class="row">
               <div class="mb-3">
                 <label class="form-label">Deskripsi</label>
-                <textarea class="form-control" v-model="formData.deskripsi" rows="4" placeholder="Deskripsi..."></textarea>
+                <textarea class="form-control" v-model="formData.deskripsi" rows="4" placeholder="Tuliskan deskripsi dari kelompok"></textarea>
               </div>
             </div>
 
@@ -121,11 +121,16 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.groupToEdit;
+    },
+    isSuperadmin(){
+      return this.userRole === "Superadmin"
     }
   },
   watch: {
@@ -140,6 +145,11 @@ export default {
           this.logo = newData.logo;
         } else {
           this.formData = { ...initialFormData };
+
+          // Jika bukan superadmin, set iddesa saat form direset
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.selectedSkFile = null;
         this.skFileName = '';
@@ -152,10 +162,32 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
     this.fetchCategoryList();
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },

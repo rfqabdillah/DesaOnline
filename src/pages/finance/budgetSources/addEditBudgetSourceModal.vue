@@ -68,10 +68,8 @@ export default {
     budgetSourceToEdit: {
       handler(newData) {
         if (newData) {
-          // Mode Edit: Salin data ke formData
           this.formData = { ...newData }; 
         } else {
-          // Mode Tambah: Reset formData dengan benar
           this.formData = { 
             namasumberanggaran: '',
           };
@@ -92,7 +90,6 @@ export default {
     },
     async submitForm() {
       this.errorMessage = null;
-      // DIUBAH: Menggunakan this.formData
       const { namasumberanggaran } = this.formData;
       if ( !namasumberanggaran ) {
         this.errorMessage = 'Semua field wajib diisi.';
@@ -101,11 +98,9 @@ export default {
       this.isLoading = true;
       try {
         if (this.isEditMode) {
-          // DIUBAH: Menggunakan this.formData
           await updateBudgetSource(this.budgetSourceToEdit.idsumberanggaran, this.formData);
           this.toast.success("Data sumber anggaran berhasil diperbarui", { icon: 'fa fa-check' });
         } else {
-          // DIUBAH: Menggunakan this.formData
           await addBudgetSource(this.formData);
           this.toast.success("Data sumber anggaran berhasil ditambah", { icon: 'fa fa-check' });
         }

@@ -3,6 +3,7 @@
     <add-edit-parcel-modal
       v-if="isModalVisible"
       :parcel-to-edit="parcelBeingEdited"
+      :user-id-desa="isSuperAdmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -26,7 +27,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -43,7 +44,7 @@
               <label for="filterNik" class="form-label">NIK Pemilik</label>
               <input type="text" id="filterNik" class="form-control" v-model="filters.nik_pemilik" placeholder="Filter berdasarkan NIK">
             </div>
-            <div class="col-md-4">
+            <div v-if="isSuperadmin" class="col-md-4">
               <label class="form-label">Nama Desa</label>
                 <select class="form-select" v-model="filters.id_desa">
                   <option value="">Semua Desa</option>
@@ -93,7 +94,7 @@
               <td>{{ item.nik_pemilik || '-' }}</td>
               <td>{{ item.nomor_letter_c || '-' }}</td>
               <td>{{ item.wilayah?.nama_wilayah || '-' }}</td>
-              <td>
+              <td v-if="canPerformActions">
                 <div class="btn-group">
                   <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail">
                     <i class="fa fa-eye"></i>
@@ -184,9 +185,17 @@ export default {
       toast: null,
       isDetailModalVisible: false,
       parcelBeingViewed: null,
+      userRole: null,
+      userIdDesa: null, 
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedParcels() {
       return this.parcels;
     },
@@ -222,10 +231,28 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchDesaList();
     await this.fetchParcels();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     async fetchDesaList() {
       try {
         const response = await getProfiles({ limit: -1 });
@@ -268,7 +295,12 @@ export default {
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '')
           .map(([key, value]) => `${key}=${value}`);
-        if (filterParts.length > 0) {
+        
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`id_desa=${this.userIdDesa}`);
+        }
+        
+          if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         }
         

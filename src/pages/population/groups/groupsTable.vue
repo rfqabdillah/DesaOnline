@@ -4,6 +4,7 @@
     <add-edit-group-modal
       v-if="isModalVisible"
       :group-to-edit="groupBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -20,7 +21,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -37,7 +38,7 @@
               <label for="filterGroupCategory" class="form-label">Kategori Kelompok</label>
               <input type="text" id="filterGroupCategory" class="form-control" v-model="filters.namakategorikelompok" placeholder="Filter berdasarkan kategori kelompok...">
             </div>
-            <div class="col-md-3">
+            <div v-if="isSuperadmin" class="col-md-3">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa...">
             </div>
@@ -80,12 +81,12 @@
                 <i class="fa fa-sort" v-else></i>
               </th>
               <th scope="col">Deskripsi</th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="6" class="text-center p-5">
+              <td colspan="7" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Loading...</span>
                 </div>
@@ -103,7 +104,7 @@
                 <td>{{ item.kelompok.namakategorikelompok || '-'}}</td>
                 <td>{{ item.wilayah.namawilayah || '-'}}</td>
                 <td>{{ item.deskripsi || '-'}}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openSkFile(item.filesk)" title="Lihat File SK">
                       <i class="fa fa-file"></i>
@@ -111,14 +112,14 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idkelompok)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="paginatedGroups.length === 0">
-                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+                <td colspan="7" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
@@ -170,9 +171,17 @@ export default {
         namakategorikelompok: '',
         namawilayah: '',
       },
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedGroups() {
       return this.groups;
     },
@@ -196,6 +205,7 @@ export default {
     },
   },
   watch: {
+    
     currentPage() {
       this.fetchGroups();
     },
@@ -206,9 +216,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchGroups();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.groupBeingEdited = null;
       this.isModalVisible = true;
@@ -246,6 +274,10 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
+        if (!this.isSuperadmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        } 
+        
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         } else {
@@ -266,9 +298,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Kelompok',
+        title: `Hapus Kelompok "${item.namakelompok}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -280,7 +312,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteGroup(id); 
+            await deleteGroup(item.idkelompok); 
             if (this.groups.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

@@ -23,7 +23,7 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Desa</label>
-                <select class="form-select" v-model="formData.id_desa" required :disabled="isListLoading">
+                <select class="form-select" v-model="formData.id_desa" required :disabled="isListLoading || !isSuperadmin" >
                   <option disabled value="">
                     {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                   </option>
@@ -67,12 +67,12 @@
             
             <div class="mb-3">
                 <label class="form-label">Batas Tanah</label>
-                <textarea class="form-control" v-model="formData.batas_tanah" placeholder="Contoh: Utara: Jalan, Timur: Tanah Pak Budi, ..." rows="3"></textarea>
+                <textarea class="form-control" v-model="formData.batas_tanah" placeholder="Sebutkan batas-batas tanah yang ada" rows="3"></textarea>
             </div>
 
             <div class="mb-3">
                 <label class="form-label">Riwayat Tanah</label>
-                <textarea class="form-control" v-model="formData.riwayat_tanah" placeholder="Jelaskan riwayat kepemilikan tanah" rows="3"></textarea>
+                <textarea class="form-control" v-model="formData.riwayat_tanah" placeholder="Jelaskan riwayat kepemilikan tanah" rows="4"></textarea>
             </div>
             <div v-if="errorMessage" class="alert alert-danger mt-3">{{ errorMessage }}</div>
           </form>
@@ -122,12 +122,17 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null, 
     };
   },
   computed: {
     isEditMode() {
       return !!this.parcelToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     parcelToEdit: {
@@ -146,6 +151,11 @@ export default {
           this.formData.riwayat_tanah = newData.riwayat_tanah;
         } else {
           this.formData = { ...initialFormData };
+
+          // Jika bukan superadmin, set iddesa saat form direset
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.errorMessage = null;
       },
@@ -154,9 +164,31 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.id_desa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },

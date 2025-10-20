@@ -3,6 +3,7 @@
     <add-edit-profile-modal
       v-if="isProfileModalVisible"
       :profile-to-edit="profileBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeProfileModal"
       @save-successful="handleProfileSaveSuccessful"
     />
@@ -36,7 +37,7 @@
     <div class="card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <h3>Daftar Profil Desa</h3>
-        <button class="btn btn-success" @click="openAddProfileModal">
+        <button v-if="canPerformActions" class="btn btn-success" @click="openAddProfileModal">
           <i class="fa fa-plus me-2"></i>
           <span>Tambah Data Desa</span>
         </button>
@@ -53,18 +54,24 @@
             </div>
             <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
               <div class="row g-2">
-                <div class="col-12">
+                <div v-if="isSuperadmin" class="col-12">
                   <label for="filterName" class="form-label">Nama Desa</label>
-                  <input type="text" id="filterName" class="form-control" v-model="filters.namawilayah" @keyup.enter="applyFilters" placeholder="Cari nama desa..."/>
+                  <input type="text" id="filterName" class="form-control" v-model="filters.namawilayah" @keyup.enter="applyFilters" placeholder="Filter berdasarkan nama desa"/>
                 </div>
                 <div class="col-12">
                   <label for="filterAddress" class="form-label">Alamat Kantor</label>
-                  <input type="text" id="filterAddress" class="form-control" v-model="filters.alamatkantor" @keyup.enter="applyFilters" placeholder="Cari alamat..."/>
+                  <input type="text" id="filterAddress" class="form-control" v-model="filters.alamatkantor" @keyup.enter="applyFilters" placeholder="flter berdasarkan alamat"/>
                 </div>
               </div>
               <div class="d-flex justify-content-end gap-2 mt-3">
-                <button class="btn btn-sm btn-secondary" @click="resetFilters">Reset</button>
-                <button class="btn btn-sm btn-primary" @click="applyFilters">Cari</button>
+                <button class="btn btn-sm btn-secondary" @click="resetFilters">
+                  <i class="fa fa-refresh me-2"></i>
+                <span>Reset Filter</span>
+              </button>
+                <button class="btn btn-sm btn-primary" @click="applyFilters">
+                  <i class="fa fa-search me-2"></i>
+                  <span>Terapkan Filter</span>
+                </button>
               </div>
             </div>
 
@@ -224,7 +231,6 @@
 </template>
 
 <script>
-// SCRIPT TIDAK ADA PERUBAHAN
 import { getProfiles, deleteProfile } from "@/services/general/villageInformation/profile";
 import { getDusuns, deleteDusun } from "@/services/general/villageInformation/dusun";
 import { getRw, deleteRw } from "@/services/general/villageInformation/rw";
@@ -261,9 +267,17 @@ export default {
       subData: { dusun: {}, rw: {}, rt: {} },
       isFilterVisible: false,
       filters: { namawilayah: "", alamatkantor: "" },
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -287,9 +301,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData(); 
     await this.fetchProfiles();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     changePage(page) {
       if (page >= 1 && page <= this.totalPages) {
         this.currentPage = page;
@@ -303,16 +335,34 @@ export default {
       this.isLoading = true;
       this.selectedDesa = null;
       try {
+
+        const filterParts = [];
+
+        if (this.filters.namawilayah) {
+          filterParts.push(`namawilayah=${this.filters.namawilayah}`);
+        }
+        if (this.filters.alamatkantor) {
+          filterParts.push(`alamatkantor=${this.filters.alamatkantor}`);
+        }
+
+        if (!this.isSuperadmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+
         const params = {
-          page: this.currentPage, limit: this.perPage,
+          page: this.currentPage,
+          limit: this.perPage,
           order: this.sortColumn ? `${this.sortColumn} ${this.sortDirection}` : "",
-          filter: this.filters.namawilayah ? `namawilayah=${this.filters.namawilayah}` : "",
+          filter: filterParts.join(','),
         };
+
         const response = await getProfiles(params);
         const profileData = response.data?.data || response.data?.[0]?.data || [];
         const meta = response.data?.[0]?.meta?.pagination || {};
+        
         this.profiles = profileData;
         this.totalItems = meta.total || profileData.length;
+
       } catch (error) {
         this.toast.error("Gagal memuat data desa");
       } finally {

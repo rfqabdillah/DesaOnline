@@ -3,6 +3,7 @@
     <add-edit-incoming-letter-modal
       v-if="isModalVisible"
       :incoming-letter-to-edit="incomingLetterBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -26,7 +27,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -37,24 +38,19 @@
           <div class="row g-3">
             <div class="col-md-3">
               <label class="form-label">Nomor Surat</label>
-              <input type="text" class="form-control" v-model="filters.nomor_surat" placeholder="Filter nomor surat...">
+              <input type="text" class="form-control" v-model="filters.nomor_surat" placeholder="Filter berdasarkan nomor surat">
             </div>
             <div class="col-md-3">
               <label class="form-label">Perihal</label>
-              <input type="text" class="form-control" v-model="filters.perihal" placeholder="Filter perihal...">
+              <input type="text" class="form-control" v-model="filters.perihal" placeholder="Filter berdasarkan perihal">
             </div>
             <div class="col-md-3">
               <label class="form-label">Pengirim</label>
-              <input type="text" class="form-control" v-model="filters.pengirim" placeholder="Filter pengirim...">
+              <input type="text" class="form-control" v-model="filters.pengirim" placeholder="Filter berdasarkan nama pengirim">
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Nama Desa</label>
-                <select class="form-select" v-model="filters.id_desa">
-                  <option value="">Semua Desa</option>
-                  <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
-                    {{ desa.wilayah.namawilayah }}
-                  </option>
-                </select>
+            <div v-if="isSuperadmin" class="col-md-3">
+              <label for="filterVillageName" class="form-label">Nama Desa</label>
+              <input type="text" id="filterVillageName" class="form-control" v-model="filters.nama_wilayah" placeholder="Filter berdasarkan nama desa">
             </div>
           </div>
           <div class="d-flex justify-content-end gap-2 mt-3">
@@ -88,7 +84,7 @@
               <th scope="col" @click="sortBy('nama_wilayah')">
                 Desa <i class="fa" :class="getSortIcon('nama_wilayah')"></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -99,7 +95,7 @@
               <td>{{ item.pengirim || '-' }}</td>
               <td>{{ formatTanggal(item.tanggal_surat) }}</td>
               <td>{{ item.wilayah?.nama_wilayah || '-' }}</td>
-              <td>
+              <td v-if="canPerformActions">
                 <div class="btn-group">
                   <button class="btn btn-success btn-sm" @click="openSuratFile(item.file_surat)" title="Lihat File Surat">
                       <i class="fa fa-file"></i>
@@ -168,12 +164,20 @@ export default {
         nomor_surat: '',
         perihal: '',
         pengirim: '',
-        id_desa: '',
+        nama_wilayah: '',
       },
       toast: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -199,10 +203,28 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this. loadUserData();
     await this.fetchDesaList();
     await this.fetchIncomingLetters();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     async fetchDesaList() {
       try {
         const response = await getProfiles({ limit: -1 });
@@ -251,7 +273,12 @@ export default {
         };
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '')
-          .map(([key, value]) => `${key}=${value}`);
+          .map(([key, value]) => `${key}=${value}`);        
+        
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`id_desa=${this.userIdDesa}`);
+        }
+        
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         }
@@ -319,7 +346,7 @@ export default {
         nomor_surat: '',
         perihal: '',
         pengirim: '',
-        id_desa: '',
+        nama_wilayah: '',
       };
       this.sortColumn = 'created_at';
       this.sortDirection = 'asc';

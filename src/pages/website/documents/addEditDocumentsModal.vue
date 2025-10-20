@@ -11,7 +11,7 @@
           <form @submit.prevent="submitForm">
             <div class="mb-3">
               <label class="form-label">Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -23,7 +23,7 @@
 
             <div class="mb-3">
               <label class="form-label">Nama Dokumen</label>
-              <input type="text" class="form-control" v-model="formData.namadokumen" required />
+              <input type="text" class="form-control" v-model="formData.namadokumen" required placeholder="Masukkan nama dokumen" />
             </div>
 
             <div class="mb-3">
@@ -54,7 +54,6 @@
               </div>
             </div>
             
-
             <div class="mb-3">
                 <label class="form-label">Deskripsi</label>
                 <textarea class="form-control" rows="3" v-model="formData.deskripsi" placeholder="Jelaskan tentang dokumen tersebut" required></textarea>
@@ -107,17 +106,23 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
     isEditMode() {
       return !!this.documentToEdit;
+    },
+    isSuperadmin(){
+      return this.userRole === "Superadmin"
     }
   },
   watch: {
     documentToEdit: {
       handler(newData) {
         if (newData) {
+          // Mengisi form untuk mode edit
           this.formData.namadokumen = newData.namadokumen;
           this.formData.idjenisdokumen = newData.idjenisdokumen;
           this.formData.deskripsi = newData.deskripsi;
@@ -125,6 +130,7 @@ export default {
           this.formData.iddesa = newData.iddesa;
           this.formData.dokumen = newData.dokumen;
         } else {
+          // Hanya mereset form untuk mode tambah
           this.formData = { ...initialFormData };
         }
         this.selectedFile = null;
@@ -136,10 +142,36 @@ export default {
     }
   },
   async created() {
+    // 1. Muat data pengguna terlebih dahulu
+    this.loadUserData();
+
+    // 2. Setelah data pengguna ada, atur iddesa jika ini mode tambah untuk operator
+    if (!this.isEditMode && !this.isSuperadmin && this.userIdDesa) {
+      this.formData.iddesa = this.userIdDesa;
+    }
+    
+    // 3. Lanjutkan memuat daftar lainnya
     await this.fetchDesaList();
     await this.fetchTypeList();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     closeModal() {
       this.$emit('close');
     },
@@ -245,5 +277,4 @@ export default {
 .text-danger { 
   color: #dc3545 !important; 
 }
-
 </style>

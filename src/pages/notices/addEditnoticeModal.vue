@@ -11,7 +11,7 @@
           <form @submit.prevent="submitForm">
             <div class="mb-3">
               <label class="form-label">Nama Desa</label>
-              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading">
+              <select class="form-select" v-model="formData.iddesa" required :disabled="isDesaListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isDesaListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -28,7 +28,15 @@
 
             <div class="mb-3">
               <label class="form-label">Konten</label>
-              <textarea class="form-control" v-model="formData.konten" placeholder="Masukkan isi konten" rows="3" required></textarea>
+              <div class="quill-editor-container">
+                <QuillEditor 
+                  theme="snow" 
+                  toolbar="full" 
+                  v-model:content="formData.konten" 
+                  contentType="html"
+                  placeholder="Tulis konten artikel di sini"
+                />
+              </div>
             </div>
 
             <div class="mb-3">
@@ -64,6 +72,7 @@
 import { addNotice, updateNotice } from '@/services/general/notices/notices'; 
 import { getProfiles } from '@/services/general/villageInformation/profile';
 import { useToast } from "vue-toastification";
+import { QuillEditor } from '@vueup/vue-quill';
 
 const initialFormData = {
   iddesa: '',
@@ -74,6 +83,7 @@ const initialFormData = {
 
 export default {
   name: 'addEditNoticeModal',
+  components: {QuillEditor,},
   props: {
     noticeToEdit: { type: Object, default: null },
   },
@@ -87,23 +97,32 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null, 
+      userIdDesa: null, 
     };
   },
   computed: {
     isEditMode() {
       return !!this.noticeToEdit;
-    }
+    },
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
   },
   watch: {
     noticeToEdit: {
       handler(newData) {
         if (newData) {
-          this.formData.iddesa = newData.iddesa;
+          this.formData.iddesa = newData.iddesa ;
           this.formData.judul = newData.judul;
           this.formData.konten = newData.konten;
           this.formData.gambar = newData.gambar;
         } else {
           this.formData = { ...initialFormData };
+          // Jika bukan superadmin, set iddesa saat form direset
+          if (!this.isSuperadmin && !this.isEditMode && this.userIdDesa) {
+            this.formData.iddesa = this.userIdDesa;
+          }
         }
         this.selectedGambarFile = null;
         this.gambarPreviewUrl = null;
@@ -114,6 +133,7 @@ export default {
     }
   },
   created() {
+    this.loadUserData();
     this.fetchDesaList();
   },
   beforeUnmount() {
@@ -122,6 +142,27 @@ export default {
     }
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+
+            // Jika bukan superadmin dan bukan mode edit, langsung set iddesa
+            if (!this.isSuperadmin && !this.isEditMode) {
+              this.formData.iddesa = this.userIdDesa;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+        this.toast.error("Gagal memuat informasi pengguna.");
+      }
+    },
     closeModal() {
       this.$emit('close');
     },
@@ -225,5 +266,30 @@ export default {
   border: 1px solid #dee2e6;
   border-radius: 0.25rem;
   height: auto;
+}
+
+.quill-editor-container {
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.quill-editor-container:focus-within {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0.375rem;
+  border-top-right-radius: 0.375rem;
+  border: none !important;
+  border-bottom: 1px solid #dee2e6 !important;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0.375rem;
+  border-bottom-right-radius: 0.375rem;
+  border: none !important;
+}
+:deep(.ql-editor) {
+  min-height: 200px; 
+  padding: 0.5rem 1rem;
 }
 </style>

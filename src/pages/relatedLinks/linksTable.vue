@@ -4,6 +4,7 @@
     <add-edit-link-modal
       v-if="isModalVisible"
       :link-to-edit="linkBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -20,7 +21,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -28,14 +29,13 @@
         </div>
 
         
-        <!-- filter -->
         <div v-if="isFilterVisible" class="border p-3 mb-3 rounded filter-section">
           <div class="row g-3">
             <div class="col-md-3">
               <label for="filterNameLink" class="form-label">Nama Link</label>
               <input type="text" id="filterNameLink" class="form-control" v-model="filters.nama" placeholder="Filter berdasarkan nama">
             </div>
-            <div class="col-md-3">
+            <div class="col-md-3" v-if="isSuperadmin">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
@@ -53,7 +53,6 @@
         </div>
       </div>
 
-      <!-- Tabel -->
       <div class="table-responsive signal-table">
         <table class="table table-hover">
           <thead>
@@ -73,12 +72,12 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namawilayah' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="isLoading">
-              <td colspan="6" class="text-center p-5">
+              <td :colspan="canPerformActions ? 6 : 5" class="text-center p-5">
                 <div class="spinner-border text-primary" role="status">
                   <span class="visually-hidden">Loading...</span>
                 </div>
@@ -94,26 +93,25 @@
                 </td>
                 <td>{{ item.nama || '-' }}</td>
                 <td>{{ item.url || '-' }}</td>
-                <td>{{ item.wilayah?.namawilayah || '-' }}</td>
-                <td>
+                <td>{{ (item.wilayah && item.wilayah.namawilayah) || '-' }}</td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idlink)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
                 </td>
               </tr>
               <tr v-if="paginatedLinks.length === 0">
-                <td colspan="6" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
+                <td :colspan="canPerformActions ? 6 : 5" class="text-center">Tidak ada data yang cocok atau tersedia.</td>
               </tr>
             </template>
           </tbody>
         </table>
 
-        <!-- Pagination -->
         <div class="d-flex flex-column flex-md-row justify-content-md-between align-items-center mt-3 px-3 pb-3">
           <div class="mt-2">
             <span v-if="totalItems > 0" class="text-muted">
@@ -160,9 +158,17 @@ export default {
         nama: '',
         namawilayah: '',
       },
+      userRole: null,
+      userIdDesa: null, 
     };
   },
   computed: {
+    isSuperadmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedLinks() {
       return this.links;
     },
@@ -196,9 +202,27 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData(); 
     await this.fetchLinks();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.linkBeingEdited = null;
       this.isModalVisible = true;
@@ -225,9 +249,14 @@ export default {
           order: this.sortColumn ? `${this.sortColumn} ${this.sortDirection}` : '',
           group: '',
         };
+
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
+        
+        if (!this.isSuperadmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
         
         params.filter = filterParts.length > 0 ? filterParts.join(',') : '';
         
@@ -245,9 +274,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Link Terkait',
+        title: `Hapus Link "${item.nama}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -259,7 +288,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteRelatedLink(id); 
+            await deleteRelatedLink(item.idlink); 
             if (this.links.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {
@@ -294,10 +323,8 @@ export default {
       this.fetchLinks();
     },
     resetFilters() {
-      this.filters.namausaha = '';
-      this.filters.alamatusaha = '';
+      this.filters.nama = '';
       this.filters.namawilayah = '';
-      this.filters.idbidangusaha = '';
       this.sortColumn = 'created_at';
       this.sortDirection = 'asc';
       this.currentPage = 1;

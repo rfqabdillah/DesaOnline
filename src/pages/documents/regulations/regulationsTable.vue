@@ -3,6 +3,7 @@
     <add-edit-regulation-modal
       v-if="isModalVisible"
       :regulation-to-edit="regulationBeingEdited"
+      :user-id-desa="isSuperadmin ? null : userIdDesa"
       @close="closeModal"
       @save-successful="handleSaveSuccessful"
     />
@@ -37,11 +38,11 @@
           <div class="row g-3">
             <div class="col-md-3">
               <label class="form-label">Judul Regulasi</label>
-              <input type="text" class="form-control" v-model="filters.judul" placeholder="Filter judul...">
+              <input type="text" class="form-control" v-model="filters.judul" placeholder="Filter berdasarkan judul regulasi">
             </div>
             <div class="col-md-3">
               <label class="form-label">Tahun</label>
-              <input type="number" class="form-control" v-model="filters.tahun" placeholder="Filter tahun...">
+              <input type="number" class="form-control" v-model="filters.tahun" placeholder="Filter berdasarkan tahun">
             </div>
             <div class="col-md-3">
               <label class="form-label">Jenis Regulasi</label>
@@ -52,14 +53,9 @@
                   </option>
                 </select>
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Nama Desa</label>
-                <select class="form-select" v-model="filters.id_desa">
-                  <option value="">Semua Desa</option>
-                  <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
-                    {{ desa.wilayah.namawilayah }}
-                  </option>
-                </select>
+            <div v-if="isSuperAdmin" class="col-md-3">
+              <label for="filterVillageName" class="form-label">Nama Desa</label>
+              <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
           </div>
           <div class="d-flex justify-content-end gap-2 mt-3">
@@ -84,13 +80,13 @@
               <th scope="col" @click="sortBy('nama_jenis_regulasi')">
                 Jenis Regulasi <i class="fa" :class="getSortIcon('nama_jenis_regulasi')"></i>
               </th>
-               <th scope="col" @click="sortBy('tahun')">
+              <th scope="col" @click="sortBy('tahun')">
                 Tahun <i class="fa" :class="getSortIcon('tahun')"></i>
               </th>
               <th scope="col" @click="sortBy('nama_wilayah')">
                 Desa <i class="fa" :class="getSortIcon('nama_wilayah')"></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -100,7 +96,7 @@
               <td>{{ item.jenis_regulasi?.nama_jenis_regulasi || '-' }}</td>
               <td>{{ item.tahun || '-' }}</td>
               <td>{{ item.wilayah?.namawilayah || '-' }}</td>
-              <td>
+              <td v-if="canPerformActions">
                 <div class="btn-group">
                   <button class="btn btn-success btn-sm" @click="openSuratFile(item.dokumen)" title="Lihat File Surat">
                       <i class="fa fa-file"></i>
@@ -171,12 +167,20 @@ export default {
         judul: '',
         tahun: '',
         idjenisregulasi: '',
-        id_desa: '',
+        namawilayah: '',
       },
       toast: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     totalPages() {
       if (this.perPage <= 0) return 1;
       return Math.ceil(this.totalItems / this.perPage);
@@ -202,11 +206,29 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData(); 
     await this.fetchDesaList();
     await this.fetchJenisRegulasiList();
     await this.fetchRegulations();
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     async fetchDesaList() {
       try {
         const response = await getProfiles({ limit: -1 });
@@ -264,6 +286,11 @@ export default {
         const filterParts = Object.entries(this.filters)
           .filter(([, value]) => value !== '')
           .map(([key, value]) => `${key}=${value}`);
+        
+          if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         if (filterParts.length > 0) {
           params.filter = filterParts.join(',');
         }
@@ -331,7 +358,7 @@ export default {
         judul: '',
         tahun: '',
         idjenisregulasi: '',
-        id_desa: '',
+        namawilayah: '',
       };
       this.sortColumn = 'created_at';
       this.sortDirection = 'asc';

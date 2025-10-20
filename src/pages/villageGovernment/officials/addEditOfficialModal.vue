@@ -11,7 +11,7 @@
           <form @submit.prevent="submitForm">
             <div class="mb-3">
               <label class="form-label">Desa</label>
-              <select class="form-select" v-model="selectedDesaId" required :disabled="isListLoading">
+              <select class="form-select" v-model="selectedDesaId" required :disabled="isListLoading || !isSuperadmin">
                 <option disabled value="">
                   {{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}
                 </option>
@@ -118,9 +118,14 @@ export default {
       isLoading: false,
       errorMessage: null,
       toast: useToast(),
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin(){
+      return this.userRole === "Superadmin";
+    },  
     isEditMode() {
       return !!this.officialToEdit;
     },
@@ -133,19 +138,43 @@ export default {
   },
   watch: {
     selectedDesaId(newVal, oldVal) {
+      if (this.isEditMode && oldVal === '') {
+        const initialDesaId = this.officialToEdit?.periode?.iddesa;
+        if (newVal === initialDesaId) return;
+      }
+      
       if (newVal !== oldVal) {
-        if (this.isEditMode && oldVal === '') return;
         this.formData.idperiode = '';
       }
     },
-    officialToEdit() {
-      this.populateForm();
+    officialToEdit: {
+        handler() {
+            this.populateForm();
+        },
+        immediate: true,
     }
   },
   async created() {
-    await this.initializeComponent();
+    this.loadUserData();
+    await this.fetchDropdownData(); 
+    this.populateForm();
   },
   methods: {
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+      }
+    },
     closeModal() {
       this.$emit('close');
     },
@@ -153,21 +182,11 @@ export default {
       if (e.target === e.currentTarget)
         this.closeModal();
     },
-    
-    async initializeComponent() {
-      await this.fetchDropdownData(); 
-      this.populateForm();           
-    },
-
     async fetchDropdownData() {
       this.isListLoading = true;
       try {
         const [
-          desaRes,
-          periodeRes,
-          pendudukRes,
-          jabatanRes,
-          statusRes
+          desaRes, periodeRes, pendudukRes, jabatanRes, statusRes
         ] = await Promise.all([
           getProfiles({ limit: -1 }),
           getPeriods({ limit: -1 }),
@@ -176,11 +195,12 @@ export default {
           getOfficialStatuses({ limit: -1 })
         ]);
 
-        this.desaList = desaRes.data?.data || desaRes.data?.[0]?.data || [];
-        this.periodeList = periodeRes.data?.data || periodeRes.data?.[0]?.data || [];
-        this.pendudukList = pendudukRes.data?.data || pendudukRes.data?.[0]?.data || [];
-        this.jabatanList = jabatanRes.data?.data || jabatanRes.data?.[0]?.data || [];
-        this.statusList = statusRes.data?.data || statusRes.data?.[0]?.data || [];
+        const extractData = (res) => res.data?.data || res.data?.[0]?.data || [];
+        this.desaList = extractData(desaRes);
+        this.periodeList = extractData(periodeRes);
+        this.pendudukList = extractData(pendudukRes);
+        this.jabatanList = extractData(jabatanRes);
+        this.statusList = extractData(statusRes);
         
       } catch (error) {
         this.toast.error("Gagal memuat semua data referensi");
@@ -188,7 +208,6 @@ export default {
         this.isListLoading = false;
       }
     },
-
     populateForm() {
       this.errorMessage = null;
       if (this.isEditMode && this.officialToEdit) {
@@ -198,17 +217,17 @@ export default {
         this.formData.idpenduduk = data.idpenduduk;
         this.formData.idstatus = data.idstatus;
 
-        const selectedPeriod = this.periodeList.find(p => p.idperiode == this.formData.idperiode);
-        if (selectedPeriod) {
-          this.selectedDesaId = selectedPeriod.iddesa;
-        }
+        this.selectedDesaId = data.periode?.iddesa || '';
 
-      } else {
+      } else { 
         this.formData = { ...initialFormData };
         this.selectedDesaId = ''; 
+        
+        if (!this.isSuperadmin && this.userIdDesa) {
+          this.selectedDesaId = this.userIdDesa;
+        }
       }
     },
-    
     async submitForm() {
       this.isLoading = true;
       this.errorMessage = null;

@@ -26,7 +26,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="isSuperAdmin" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Pengguna</span>
             </button>
@@ -110,10 +110,10 @@
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail">
                       <i class="fa fa-eye"></i>
                     </button>
-                    <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
+                    <button v-if="isSuperAdmin" class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.user_id)" title="Hapus Data">
+                    <button v-if="isSuperAdmin" class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -174,9 +174,13 @@ export default {
       },
       isDetailModalVisible: false,
       userBeingViewed: null,
+      userRole: null,
     };
   },
   computed: {
+    isSuperAdmin() {
+      return this.userRole === 'Superadmin';
+    },
     paginatedUsers() {
       return this.users;
     },
@@ -210,9 +214,24 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserRole();
     await this.fetchUsers();
   },
   methods: {
+    loadUserRole() {
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          if (userData && userData.data && userData.data[0] && userData.data[0].role) {
+            this.userRole = userData.data[0].role.nama_level;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+        }
+      }
+    },
     openAddModal() {
       this.userBeingEdited = null;
       this.isModalVisible = true;
@@ -270,9 +289,9 @@ export default {
         this.isLoading = false; 
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Pengguna',
+        title: `Hapus Pengguna "${item.name}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -284,7 +303,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteUser(id); 
+            await deleteUser(item.user_id); 
             if (this.users.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

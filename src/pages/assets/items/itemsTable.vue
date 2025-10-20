@@ -26,7 +26,7 @@
               <i v-else class="fa fa-angle-down me-2"></i>
               <span> {{ isFilterVisible ? 'Sembunyikan' : 'Tampilkan' }} Filter</span>
             </button>
-            <button class="btn btn-success" @click="openAddModal">
+            <button v-if="canPerformActions" class="btn btn-success" @click="openAddModal">
               <i class="fa fa-plus me-2"></i>
               <span> Tambah Data</span>
             </button>
@@ -43,7 +43,7 @@
               <label for="filterPoliceNumber" class="form-label">Kode Barang</label>
               <input type="text" id="filterPoliceNumber" class="form-control" v-model="filters.kodebarang" placeholder="Filter berdasarkan kode barang">
             </div>
-            <div class="col-md-3">
+            <div v-if="isSuperadmin" class="col-md-3">
               <label for="filterVillageName" class="form-label">Nama Desa</label>
               <input type="text" id="filterVillageName" class="form-control" v-model="filters.namawilayah" placeholder="Filter berdasarkan nama desa">
             </div>
@@ -99,7 +99,7 @@
                 <i class="fa fa-sort-desc" v-else-if="sortColumn === 'namakondisi' && sortDirection === 'desc'"></i>
                 <i class="fa fa-sort" v-else></i>
               </th>
-              <th scope="col">Aksi</th>
+              <th v-if="canPerformActions" scope="col">Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -118,7 +118,7 @@
                 <td>{{ item.kodebarang || '-' }}</td>
                 <td>{{ item.wilayah?.namawilayah || '-' }}</td>
                 <td>{{ item.kondisi?.namakondisi || '-' }}</td>
-                <td>
+                <td v-if="canPerformActions">
                   <div class="btn-group">
                     <button class="btn btn-info btn-sm" @click="openDetailModal(item)" title="Lihat Detail">
                       <i class="fa fa-eye"></i>
@@ -126,7 +126,7 @@
                     <button class="btn btn-primary btn-sm" @click="openEditModal(item)" title="Ubah Data">
                       <i class="fa fa-pencil"></i>
                     </button>
-                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item.idbarang)" title="Hapus Data">
+                    <button class="btn btn-danger sweet-11 btn-sm" type="button" @click="advancedDeleteAlert(item)" title="Hapus Data">
                       <i class="fa fa-trash"></i>
                     </button>
                   </div>
@@ -192,9 +192,17 @@ export default {
       },
       isDetailModalVisible: false,
       itemBeingViewed: null,
+      userRole: null,
+      userIdDesa: null,
     };
   },
   computed: {
+    isSuperadmin(){
+      return this.userRole === 'Superadmin';
+    },
+    canPerformActions() {
+      return this.userRole === 'Superadmin' || this.userRole === 'Operator'; 
+    },
     paginatedItems() {
       return this.items;
     },
@@ -228,10 +236,28 @@ export default {
   },
   async mounted() {
     this.toast = useToast();
+    this.loadUserData();
     await this.fetchItems();
     await this.fetchConditions(); 
   },
   methods: {
+    loadUserData() { 
+      const userDataString = localStorage.getItem('userData'); 
+      if (userDataString) {
+        try {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        } catch (error) {
+          console.error("Gagal mem-parsing data pengguna dari localStorage:", error);
+          this.userRole = null; 
+          this.userIdDesa = null;
+        }
+      }
+    },
     openAddModal() {
       this.itemBeingEdited = null;
       this.isModalVisible = true;
@@ -269,6 +295,10 @@ export default {
           .filter(([, value]) => value !== '' && value !== null)
           .map(([key, value]) => `${key}=${value}`);
         
+        if (!this.isSuperAdmin && this.userIdDesa) {
+          filterParts.push(`iddesa=${this.userIdDesa}`);
+        }
+        
         params.filter = filterParts.length > 0 ? filterParts.join(',') : '';
         
         const response = await getItems(params);
@@ -293,9 +323,9 @@ export default {
         this.toast.error("Gagal memuat daftar kondisi", { icon: 'fa fa-times' });
       }
     },
-    advancedDeleteAlert(id) { 
+    advancedDeleteAlert(item) { 
       this.$swal({
-        title: 'Hapus Data Barang',
+        title: `Hapus Barang "${item.namabarang}"`,
         text: 'Apakah Anda yakin ingin menghapus data ini?',
         icon: 'warning',
         showCancelButton: true,
@@ -307,7 +337,7 @@ export default {
       }).then(async (result) => {
         if (result.isConfirmed) {
           try {
-            await deleteItem(id); 
+            await deleteItem(item.idbarang); 
             if (this.items.length === 1 && this.currentPage > 1) {
               this.currentPage--;
             } else {

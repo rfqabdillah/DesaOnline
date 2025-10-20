@@ -22,7 +22,7 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Desa</label>
-                <select class="form-select" v-model="selectedLocation.desa" required :disabled="isListLoading">
+                <select class="form-select" v-model="selectedLocation.desa" required :disabled="isListLoading || !isSuperadmin">
                   <option disabled value="">{{ isListLoading ? 'Memuat...' : 'Pilih Desa' }}</option>
                   <option v-for="desa in desaList" :key="desa.iddesa" :value="desa.iddesa">
                     {{ desa.wilayah?.namawilayah }}
@@ -31,9 +31,9 @@
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama Dusun</label>
-                <select class="form-select" v-model="selectedLocation.dusun" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.desa)">
+                <select class="form-select" v-model="selectedLocation.dusun" required :disabled="isListLoading || (!isEditMode && !selectedLocation.desa)">
                   <option disabled value="">
-                    {{ !selectedLocation.desa && !isInitialEditLoad ? 'Pilih Desa terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih Dusun') }}
+                    {{ !selectedLocation.desa ? 'Pilih Desa terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih Dusun') }}
                   </option>
                   <option v-for="dusun in dusunOptions" :key="dusun.iddusun" :value="dusun.iddusun">
                     {{ dusun.namadusun }}
@@ -45,9 +45,9 @@
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama RW</label>
-                <select class="form-select" v-model="selectedLocation.rw" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.dusun)">
+                <select class="form-select" v-model="selectedLocation.rw" required :disabled="isListLoading || (!isEditMode && !selectedLocation.dusun)">
                   <option disabled value="">
-                    {{ !selectedLocation.dusun && !isInitialEditLoad ? 'Pilih Dusun terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RW') }}
+                    {{ !selectedLocation.dusun ? 'Pilih Dusun terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RW') }}
                   </option>
                   <option v-for="rw in rwOptions" :key="rw.idrw" :value="rw.idrw">
                     {{ rw.namarw }}
@@ -56,9 +56,9 @@
               </div>
               <div class="col-md-6 mb-3">
                 <label class="form-label">Nama RT</label>
-                <select class="form-select" v-model="formData.idrt" required :disabled="isListLoading || (!isInitialEditLoad && !selectedLocation.rw)">
+                <select class="form-select" v-model="formData.idrt" required :disabled="isListLoading || (!isEditMode && !selectedLocation.rw)">
                   <option disabled value="">
-                    {{ !selectedLocation.rw && !isInitialEditLoad ? 'Pilih RW terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RT') }}
+                    {{ !selectedLocation.rw ? 'Pilih RW terlebih dahulu' : (isListLoading ? 'Memuat...' : 'Pilih RT') }}
                   </option>
                   <option v-for="rt in rtOptions" :key="rt.idrt" :value="rt.idrt">
                     {{ rt.namart }}
@@ -77,6 +77,7 @@
                 <input type="date" class="form-control" v-model="formData.tanggallahir" required />
               </div>
             </div>
+
             <div class="row">
               <div class="col-md-6 mb-3">
                 <label class="form-label">Agama</label>
@@ -97,6 +98,7 @@
                 </select>
               </div>
             </div>
+
             <div class="mb-3">
               <label class="form-label">Jenis Kelamin</label>
               <select class="form-select" v-model="formData.idjeniskelamin" required :disabled="isListLoading">
@@ -161,7 +163,7 @@
               </select>
             </div>
             <div class="mb-3">
-              <label class="form-label">Nomor whatsapp</label>
+              <label class="form-label">Nomor Whatsapp</label>
               <input type="text" class="form-control" v-model="formData.whatsapp" placeholder="Masukkan Nomor Whatsapp" required />
             </div>
 
@@ -193,27 +195,26 @@ import { getOccupations } from '@/services/referensi/occupations';
 import { getBirthAttendants } from '@/services/referensi/birthAttendants';
 import { getMartialStatuses } from '@/services/referensi/martialStatuses';
 import { useToast } from "vue-toastification";
-
 import { getProfiles } from "@/services/general/villageInformation/profile";
 import { getDusuns } from "@/services/general/villageInformation/dusun";
 import { getRw } from "@/services/general/villageInformation/rw";
 import { getRt } from "@/services/general/villageInformation/rt";
 
 const initialFormData = {
-  nik: '',
-  nama: '',
-  tempatlahir: '',
-  tanggallahir: '',
-  idrt: '',
-  idjeniskelamin: '',
-  idagama: '',
-  idgolongandarah: '',
-  idhubungankeluarga: '',
-  idpekerjaan: '',
-  idpendidikan: '',
-  idpenolongkelahiran: '',
-  idstatusperkawinan: '',
-  idtempatkelahiran: '',
+  nik: '', 
+  nama: '', 
+  tempatlahir: '', 
+  tanggallahir: '', 
+  idrt: '', 
+  idjeniskelamin: '', 
+  idagama: '', 
+  idgolongandarah: '', 
+  idhubungankeluarga: '', 
+  idpekerjaan: '', 
+  idpendidikan: '', 
+  idpenolongkelahiran: '', 
+  idstatusperkawinan: '', 
+  idtempatkelahiran: '', 
   whatsapp: '',
 };
 
@@ -225,61 +226,34 @@ export default {
   data() {
     return {
       formData: { ...initialFormData },
-      selectedLocation: {
-        desa: '',
-        dusun: '',
-        rw: '',
-      },
-      isInitialEditLoad: false,
-      desaList: [],
-      dusunList: [],
-      rwList: [],
-      rtList: [],
-      genderList: [],
-      religionsList: [],
-      bloodTypesList: [],
-      familyRelationshipsList: [],
-      occupationsList: [],
-      educationsList: [],
-      martialStatusesList: [],
-      birthAttendantsList: [],
-      birthPlacesList: [],
-      isListLoading: false,
-      isLoading: false,
-      errorMessage: null,
-      toast: useToast(),
+      selectedLocation: { desa: '', dusun: '', rw: '' },
+      desaList: [], dusunList: [], rwList: [], rtList: [], genderList: [], religionsList: [], bloodTypesList: [], familyRelationshipsList: [], occupationsList: [], educationsList: [], martialStatusesList: [], birthAttendantsList: [], birthPlacesList: [],
+      isListLoading: false, isLoading: false, errorMessage: null,
+      toast: useToast(), userRole: null, userIdDesa: null,
     };
   },
   computed: {
-    isEditMode() {
-      return !!this.residentToEdit;
+    isSuperadmin() { 
+      return this.userRole === 'Superadmin'; 
+    },
+    isEditMode() { 
+      return !!this.residentToEdit; 
     },
     dusunOptions() {
-      if (this.isInitialEditLoad) {
-        return this.dusunList;
-      }
       if (!this.selectedLocation.desa) return [];
       return this.dusunList.filter(d => d.iddesa == this.selectedLocation.desa);
     },
     rwOptions() {
-      if (this.isInitialEditLoad) {
-        return this.rwList;
-      }
       if (!this.selectedLocation.dusun) return [];
       return this.rwList.filter(rw => rw.iddusun == this.selectedLocation.dusun);
     },
     rtOptions() {
-      if (this.isInitialEditLoad) {
-        return this.rtList;
-      }
       if (!this.selectedLocation.rw) return [];
       return this.rtList.filter(rt => rt.idrw == this.selectedLocation.rw);
     }
   },
   watch: {
     'selectedLocation.desa'(newVal, oldVal) {
-      if (this.isInitialEditLoad) return;
-
       if (newVal !== oldVal) {
         this.selectedLocation.dusun = '';
         this.selectedLocation.rw = '';
@@ -287,110 +261,91 @@ export default {
       }
     },
     'selectedLocation.dusun'(newVal, oldVal) {
-      if (this.isInitialEditLoad) return;
-
       if (newVal !== oldVal) {
         this.selectedLocation.rw = '';
         this.formData.idrt = '';
       }
     },
     'selectedLocation.rw'(newVal, oldVal) {
-      if (this.isInitialEditLoad) return;
-
       if (newVal !== oldVal) {
         this.formData.idrt = '';
       }
     },
-    residentToEdit() {
-      this.populateForm();
+    residentToEdit: {
+      handler() { this.populateForm(); },
+      immediate: true
     }
   },
   async created() {
     await this.initializeComponent();
   },
   methods: {
-    closeModal() {
-      this.$emit('close');
+    loadUserData() {
+      try {
+        const userDataString = localStorage.getItem('userData');
+        if (userDataString) {
+          const userData = JSON.parse(userDataString);
+          const userProfile = userData?.data?.[0];
+          if (userProfile) {
+            this.userRole = userProfile.role?.nama_level;
+            this.userIdDesa = userProfile.id_desa;
+          }
+        }
+      } catch (error) {
+        console.error("Gagal membaca data pengguna dari localStorage:", error);
+      }
     },
-    handleOverlayClick(e) {
-      if (e.target === e.currentTarget)
-        this.closeModal();
-    },
-    
     async initializeComponent() {
-      await this.fetchDropdownData(); 
+      this.loadUserData();
+      await this.fetchDropdownData();
       this.populateForm();
     },
-
     async fetchDropdownData() {
       this.isListLoading = true;
       try {
-        const [
-          desaRes, dusunRes, rwRes, rtRes, genderRes, religionRes, bloodRes,
-          familyRes, occupationRes, educationRes, birthAttendantRes, martialRes, birthPlaceRes
-        ] = await Promise.all([
-          getProfiles({ limit: -1 }),
-          getDusuns({ limit: -1 }),
-          getRw({ limit: -1 }),
-          getRt({ limit: -1 }),
-          getGenders({ limit: -1 }),
-          getReligions({ limit: -1 }),
-          getBloodTypes({ limit: -1 }),
-          getFamilyRelationships({ limit: -1 }),
-          getOccupations({ limit: -1 }),
-          getEducationLevels({ limit: -1 }),
-          getBirthAttendants({ limit: -1 }),
-          getMartialStatuses({ limit: -1 }),
-          getBirthPlaces({ limit: -1 }),
+        const responses = await Promise.all([
+          getProfiles({ limit: -1 }), getDusuns({ limit: -1 }), getRw({ limit: -1 }), getRt({ limit: -1 }), getGenders({ limit: -1 }), getReligions({ limit: -1 }), getBloodTypes({ limit: -1 }), getFamilyRelationships({ limit: -1 }), getOccupations({ limit: -1 }), getEducationLevels({ limit: -1 }), getBirthAttendants({ limit: -1 }), getMartialStatuses({ limit: -1 }), getBirthPlaces({ limit: -1 }),
         ]);
-
-        this.desaList = desaRes.data?.data || desaRes.data?.[0]?.data || [];
-        this.dusunList = dusunRes.data?.data || dusunRes.data?.[0]?.data || [];
-        this.rwList = rwRes.data?.data || rwRes.data?.[0]?.data || [];
-        this.rtList = rtRes.data?.data || rtRes.data?.[0]?.data || [];
-        this.genderList = genderRes.data?.data || genderRes.data?.[0]?.data || [];
-        this.religionsList = religionRes.data?.data || religionRes.data?.[0]?.data || [];
-        this.bloodTypesList = bloodRes.data?.data || bloodRes.data?.[0]?.data || [];
-        this.familyRelationshipsList = familyRes.data?.data || familyRes.data?.[0]?.data || [];
-        this.occupationsList = occupationRes.data?.data || occupationRes.data?.[0]?.data || [];
-        this.educationsList = educationRes.data?.data || educationRes.data?.[0]?.data || [];
-        this.birthAttendantsList = birthAttendantRes.data?.data || birthAttendantRes.data?.[0]?.data || [];
-        this.martialStatusesList = martialRes.data?.data || martialRes.data?.[0]?.data || [];
-        this.birthPlacesList = birthPlaceRes.data?.data || birthPlaceRes.data?.[0]?.data || [];
-
+        const extractData = (res) => res.data?.data || res.data?.[0]?.data || [];
+        [
+          this.desaList, this.dusunList, this.rwList, this.rtList, this.genderList, this.religionsList, this.bloodTypesList, this.familyRelationshipsList, this.occupationsList, this.educationsList, this.birthAttendantsList, this.martialStatusesList, this.birthPlacesList
+        ] = responses.map(extractData);
       } catch (error) {
         this.toast.error("Gagal memuat semua data referensi");
       } finally {
         this.isListLoading = false;
       }
     },
-
     populateForm() {
       this.errorMessage = null;
       if (this.isEditMode && this.residentToEdit) {
-        this.isInitialEditLoad = true;
-        
+        // Salin semua data dasar terlebih dahulu
         Object.assign(this.formData, this.residentToEdit);
+
+        // Set nilai hirarki lokasi secara berurutan
         this.selectedLocation.desa = this.residentToEdit.dusun?.iddesa || '';
         this.selectedLocation.dusun = this.residentToEdit.rw?.iddusun || '';
-        this.selectedLocation.rw = this.residentToEdit.rt?.idrw || '';
-        this.formData.idrt = this.residentToEdit.idrt || '';
-        
+
+        // memberi jeda pada Vue
         this.$nextTick(() => {
-          this.isInitialEditLoad = false;
+          this.selectedLocation.rw = this.residentToEdit.rt?.idrw || '';
+
+          this.$nextTick(() => {
+            this.formData.idrt = this.residentToEdit.idrt || '';
+          });
         });
 
-      } else {
-        this.isInitialEditLoad = false;
+      } else { 
         this.formData = { ...initialFormData };
         this.selectedLocation = { desa: '', dusun: '', rw: '' };
+        if (!this.isSuperadmin && this.userIdDesa) {
+          this.selectedLocation.desa = this.userIdDesa;
+        }
       }
     },
-    
     async submitForm() {
       this.isLoading = true;
       this.errorMessage = null;
-
       const data = new FormData();
       data.append('record[nik]', this.formData.nik || '');
       data.append('record[nama]', this.formData.nama || '');
@@ -425,7 +380,14 @@ export default {
       } finally {
         this.isLoading = false;
       }
-    }
+    },
+    closeModal() {
+      this.$emit('close');
+    },
+    handleOverlayClick(e) {
+      if (e.target === e.currentTarget)
+        this.closeModal();
+    },
   },
 };
 </script>
